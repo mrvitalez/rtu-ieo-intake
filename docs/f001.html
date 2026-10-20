@@ -37,7 +37,7 @@
   <div class="doc" id="form-doc">
     <div class="form-code"><strong>RTU-OVPAA-IEO-F001</strong><span>SOP-OVPAA-IEO-01 Needs Assessment and Student Profiling</span></div>
     <h1>REFERRAL SLIP FOR NEEDS ASSESSMENT</h1>
-    <p class="lead">Use this slip to refer an RTU student to the Inclusive Education Office for a needs assessment. Offices, professors, classmates, and students referring themselves can all use it.</p>
+    <p class="lead">Use this slip to refer an RTU student to the Inclusive Education Office for a needs assessment.<br><br>This slip is to be utilized by offices, professors, classmates, or students (referring themselves).</p>
     <p class="muted small">Fields marked <span class="req" aria-hidden="true">*</span><span class="hp">with an asterisk</span> are required. If you do not know an answer about the student, leave it blank.</p>
 
     <form id="f001" data-ieo-form action="#" method="post">
@@ -49,7 +49,7 @@
         <div class="grid">
           <div class="field span-all"><label for="s_name">Name <span class="req" aria-hidden="true">*</span></label>
             <input type="text" id="s_name" name="s_name" required maxlength="300" autocomplete="off" aria-describedby="s_name-hint">
-            <span class="hint" id="s_name-hint">Last name, first name, middle name</span></div>
+            <span class="hint" id="s_name-hint">Last Name, First Name Middle Name</span></div>
           <div class="field span-all" id="program-field"><label for="s_program">Program <span class="req" aria-hidden="true">*</span></label>
             <input type="text" id="s_program" name="s_program" required maxlength="300" autocomplete="off"></div>
           <div class="field span-all" data-show-if="s_program=Other"><label for="s_program_other">Program (not listed) <span class="req" aria-hidden="true">*</span></label>
@@ -78,11 +78,11 @@
         <fieldset class="subgroup" style="margin-top:1.25rem" data-group data-label="Reason for Referral" data-required-group="reasons">
           <legend>Reason for Referral: <span class="req" aria-hidden="true">*</span></legend>
           <div class="choices wide">
-            <label class="choice"><input type="checkbox" name="reasons" id="reason_academic" value="Academic Challenged"> Academic Challenged</label>
-            <label class="choice"><input type="checkbox" name="reasons" id="reason_behavioral" value="Behavioral Challenged"> Behavioral Challenged</label>
-            <label class="choice"><input type="checkbox" name="reasons" id="reason_mobility" value="Mobility/Sensory Challenged"> Mobility/Sensory Challenged</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_academic" value="Academic Challenges"> Academic Challenges</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_behavioral" value="Behavioral Challenges"> Behavioral Challenges</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_mobility" value="Mobility/Sensory Challenges"> Mobility/Sensory Challenges</label>
             <label class="choice"><input type="checkbox" name="reasons" id="reason_marginalized" value="Student from Marginalized Sector"> Student from Marginalized Sector</label>
-            <label class="choice"><input type="checkbox" name="reasons" id="reason_others" value="Others"> Others (please specify)</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_others" value="Others"> Others (please specify):</label>
           </div>
           <div class="field" data-show-if="reasons=Others" style="margin:0.25rem 0 0.5rem 1.9rem">
             <label for="reason_other">Please specify <span class="req" aria-hidden="true">*</span></label>
