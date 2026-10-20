@@ -102,6 +102,7 @@ function getConfig() {
     linkValidDays: IEO.LINK_VALID_DAYS,
     interviewModes: IEO.INTERVIEW_MODES,
     contactMethods: IEO.CONTACT_METHODS,
+    staffList: staffList_(),
     unmatchedF004: (function () {
       var ids = {};
       ieoReadAll_('Cases').forEach(function (c) { ids[String(c.case_id).toUpperCase()] = true; });
@@ -120,6 +121,7 @@ function listCases() {
   return ieoReadAll_('Cases').map(function (c) {
     return {
       f004_pending: !!pendingReq[String(c.case_id).toUpperCase()],
+      case_manager: c.case_manager,
       case_id: c.case_id, created_at: c.created_at, stage: c.stage, student_name: c.student_name,
       student_no: c.student_no, program: c.program, department: c.department,
       referral_source: c.referral_source, updated_at: c.updated_at,
@@ -166,15 +168,33 @@ function getCase(caseId) {
   };
 }
 
-/* ---------------- Stage: Identify the Risk and Opportunity ---------------- */
+/* ---------------- Stage 2: Reason for Referral review and case manager ---------------- */
+/* (The note is stored in the risk_opportunity_note column, which keeps its original name.) */
 
 function saveRiskNote(caseId, note) {
   return staffWrite_(caseId, 'RISK_NOTE_SAVED', function (c, email) {
     if (c.stage === 'CLOSED') throw new Error('This case is closed.');
     var s = ieoClean_(note, IEO.MAX_LONG_TEXT);
-    if (!s) throw new Error('Write the risk and opportunity note first.');
+    if (!s) throw new Error('Write the reason for referral review first.');
     touch_(c, email, { risk_opportunity_note: s });
     return { ok: true };
+  });
+}
+
+/** The IEO staff list from STAFF_EMAILS, for choosing a case manager. */
+function staffList_() {
+  return String(PropertiesService.getScriptProperties().getProperty('STAFF_EMAILS') || '')
+    .split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(String);
+}
+
+/** Assigns (or changes) the case manager who contacts the student and handles the case. */
+function assignCaseManager(caseId, managerEmail) {
+  return staffWrite_(caseId, 'CASE_MANAGER_ASSIGNED', function (c, email) {
+    if (c.stage === 'CLOSED') throw new Error('This case is closed.');
+    var m = String(managerEmail || '').trim().toLowerCase();
+    if (staffList_().indexOf(m) < 0) throw new Error('Choose a case manager from the IEO staff list.');
+    touch_(c, email, { case_manager: m, case_manager_assigned_at: ieoNow_() });
+    return { ok: true, _audit: m };
   });
 }
 
@@ -201,7 +221,7 @@ function saveDocuments(caseId, categories, received) {
 function markDocumentsPending(caseId) {
   return staffWrite_(caseId, 'DOCUMENTS_PENDING', function (c, email) {
     if (['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) < 0) throw new Error('This case is past the documents stage.');
-    if (!c.risk_opportunity_note) throw new Error('Save the risk and opportunity note first.');
+    if (!c.risk_opportunity_note) throw new Error('Save the reason for referral review first.');
     requireResponded_(c);
     var ev = ieoEvaluateDocuments_(parseList_(c.categories), parseList_(c.documents_received));
     if (ev.complete) throw new Error('All required documents are already checked. Proceed to the interview instead.');
@@ -390,6 +410,8 @@ function followUpDraft_(c, st) {
 function logContactAttempt(caseId, a) {
   return staffWrite_(caseId, 'FOLLOWUP_ATTEMPT', function (c, email) {
     if (['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) < 0) throw new Error('Follow up applies before the interview stage.');
+    if (!c.risk_opportunity_note) throw new Error('Save the reason for referral review first.');
+    if (!c.case_manager) throw new Error('Assign a case manager first. The case manager contacts the student.');
     var st = followUpState_(c);
     if (st.status === 'RESPONDED') throw new Error('Someone already responded. Continue with the required documents.');
     if (st.pending) throw new Error('Attempt ' + st.pending.attempt_no + ' is still waiting for a reply. Record its result first.');
@@ -503,7 +525,7 @@ function reopenCase(caseId, note) {
 function proceedToInterview(caseId, schedule) {
   return staffWrite_(caseId, 'INTERVIEW_SCHEDULED', function (c, email) {
     if (['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) < 0) throw new Error('This case is not at the documents stage.');
-    if (!c.risk_opportunity_note) throw new Error('Save the risk and opportunity note first.');
+    if (!c.risk_opportunity_note) throw new Error('Save the reason for referral review first.');
     requireResponded_(c);
     var ev = ieoEvaluateDocuments_(parseList_(c.categories), parseList_(c.documents_received));
     if (!ev.complete) throw new Error('The process may not push forward without the required documents. Missing: ' + ev.missing.join('; '));

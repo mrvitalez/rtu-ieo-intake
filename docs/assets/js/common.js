@@ -77,6 +77,24 @@
     update();
   }
 
+  /* ---------- filling (saved answers) ---------- */
+  function fillForm(form, data) {
+    Object.keys(data || {}).forEach(function (name) {
+      var val = data[name];
+      var els = form.querySelectorAll('[name="' + name + '"]');
+      els.forEach(function (el) {
+        if (el.type === 'checkbox') {
+          el.checked = Array.isArray(val) ? val.indexOf(el.value) >= 0 : (val === true || val === 'Yes');
+        } else if (el.type === 'radio') {
+          el.checked = el.value === val;
+        } else if (!el.readOnly) {
+          el.value = val == null ? '' : val;
+        }
+      });
+    });
+    form.dispatchEvent(new Event('change')); // refresh the sections that show or hide
+  }
+
   /* ---------- reading ---------- */
   function readForm(form) {
     var data = {};
@@ -312,7 +330,7 @@
   });
 
   window.IEOForms = {
-    readForm: readForm, wireForm: wireForm, showErrors: showErrors, clearErrors: clearErrors,
+    readForm: readForm, fillForm: fillForm, wireForm: wireForm, showErrors: showErrors, clearErrors: clearErrors,
     showNotice: showNotice, escapeHtml: escapeHtml, nowText: nowText, startClock: startClock,
     ageFrom: ageFrom, norm: norm, get: get, post: post, endpoint: endpoint, setupConditionals: setupConditionals
   };

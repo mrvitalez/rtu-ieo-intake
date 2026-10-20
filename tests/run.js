@@ -235,11 +235,30 @@ test('getCase never exposes the link hash', () => {
 });
 
 console.log('SOP workflow');
-test('the interview cannot start before the risk and opportunity note', () => {
-  assert.throws(() => S.proceedToInterview(caseId, SCHED), /risk and opportunity/);
+test('the interview cannot start before the reason for referral review', () => {
+  assert.throws(() => S.proceedToInterview(caseId, SCHED), /reason for referral review/);
 });
-test('save the risk and opportunity note', () => {
+test('save the reason for referral review and assign a case manager', () => {
   assert.strictEqual(S.saveRiskNote(caseId, 'Risk: falling behind. Opportunity: early support.').ok, true);
+  assert.strictEqual(S.assignCaseManager(caseId, STAFF).ok, true);
+});
+test('a case manager must be on the staff list, and is required before the follow up', () => {
+  const r = post('submit_f001', Object.assign({}, F001, { s_name: 'No Manager Yet' }));
+  S.saveRiskNote(r.ref, 'note');
+  assert.throws(() => S.logContactAttempt(r.ref, { method: 'Phone' }), /Assign a case manager/);
+  assert.throws(() => S.assignCaseManager(r.ref, 'outsider@gmail.com'), /staff list/);
+  S.assignCaseManager(r.ref, 'Director@rtu.edu.ph');
+  assert.strictEqual(S.ieoFindCase_(r.ref).case_manager, 'director@rtu.edu.ph');
+  assert.ok(S.getConfig().staffList.indexOf(STAFF) >= 0);
+});
+test('once assigned, alert emails for the case go to the case manager', () => {
+  const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Alert Routing' }));
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, 'director@rtu.edu.ph');
+  const before = world.mail.length;
+  post('submit_f004', { case_id: r.ref, s_name: 'Alert Routing', s_email: 'juan.delacruz@rtu.edu.ph', to_profession: 'Physician', consent: true });
+  const alert = world.mail.slice(before).find(m => /Request for Referral Form/.test(m.subject));
+  assert.strictEqual(alert.to, 'director@rtu.edu.ph');
+  assert.ok(S.listCases().some(c => c.case_id === r.ref && c.case_manager === 'director@rtu.edu.ph'));
 });
 test('the documents step stays locked until someone responds to the follow up', () => {
   S.saveDocuments(caseId, ['NEURODIVERGENT'], ['clinical_dx']);
@@ -289,7 +308,7 @@ test('documents incomplete marks the case and allows F003 for neurodivergent cas
 });
 test('F003 is refused for IP or PDL cases (they submit the documents directly)', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'IP Student' }));
-  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, STAFF); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], []);
   assert.throws(() => S.issueF003(r.ref, { to_profession: 'Physician' }), /F003 applies/);
 });
@@ -371,7 +390,7 @@ test('documents are locked after the interview opens', () => {
 });
 test('the link status reveals no personal data', () => {
   const s = status(portfolioToken);
-  same(s, { ok: true, valid: true, portfolioOpen: true, waiverOpen: false });
+  same(s, { ok: true, valid: true, portfolioOpen: true, portfolioSubmitted: false, waiverOpen: false });
   same(status('not-a-token'), { ok: true, valid: false });
 });
 
@@ -397,15 +416,42 @@ test('portfolio validation: IP group needed when Yes, Others needs text, acknowl
 test('the waiver cannot be signed before the decision', () => {
   assert.match(post('submit_waiver', { waiver_name: 'Juan', ay_start: '2026', ay_end: '2027', semester: '1st', signature_name: 'Juan', consent: true }, portfolioToken).error, /waiver is not open/);
 });
-test('a valid portfolio is saved once', () => {
+test('the student can save progress (after consent), and get their own answers back by link', () => {
+  assert.ok(post('save_f002', { course: 'BSECE' }, portfolioToken).fields.consent, 'consent needed to save');
+  const r = post('save_f002', { course: 'BSECE', last_name: 'Dela Cruz', ip_member: 'Yes', ip_groups: ['Ifugao'], disabilities: ['Bad value'], consent: true }, portfolioToken);
+  assert.strictEqual(r.ok, true, JSON.stringify(r));
+  const row = rows('F002_Portfolios').filter(x => x.case_id === caseId);
+  assert.strictEqual(row.length, 1);
+  assert.strictEqual(row[0].status, 'Draft');
+  assert.strictEqual(S.ieoFindCase_(caseId).stage, 'INTERVIEW', 'a draft is not a submission');
+  const l = post('load_f002', {}, portfolioToken);
+  assert.strictEqual(l.status, 'Draft');
+  assert.strictEqual(l.data.last_name, 'Dela Cruz');
+  same(l.data.ip_groups, ['Ifugao']);
+  same(l.data.disabilities, [], 'invalid options are dropped');
+  assert.strictEqual(l.data.consent, true);
+  assert.match(post('load_f002', {}, 'f'.repeat(64)).error, /not valid/);
+});
+test('a valid portfolio is submitted (one row per case)', () => {
   const r = post('submit_f002', F002, portfolioToken);
   assert.strictEqual(r.ok, true, JSON.stringify(r));
   assert.ok(world.mail.some(x => /Student portfolio submitted/.test(x.subject) && x.subject.includes(caseId)), 'staff alerted');
   const p = rows('F002_Portfolios')[0];
   assert.strictEqual(p.ip_groups, 'Ifugao; Others');
   assert.strictEqual(rows('Cases')[0].stage, 'PORTFOLIO_SUBMITTED');
-  assert.match(post('submit_f002', F002, portfolioToken).error, /already been submitted/);
-  assert.strictEqual(status(portfolioToken).portfolioOpen, false);
+  assert.strictEqual(rows('F002_Portfolios').filter(x => x.case_id === caseId).length, 1);
+  assert.strictEqual(p.status, 'Submitted');
+  const s2 = status(portfolioToken);
+  assert.ok(s2.portfolioOpen && s2.portfolioSubmitted, 'still open for changes');
+  assert.match(post('save_f002', Object.assign({}, F002), portfolioToken).error, /submit again/);
+});
+test('after submitting, the student can change answers and submit again until the decision', () => {
+  const before = world.mail.length;
+  const r = post('submit_f002', Object.assign({}, F002, { nickname: 'Juanito' }), portfolioToken);
+  assert.ok(r.ok && r.updated);
+  assert.strictEqual(rows('F002_Portfolios').filter(x => x.case_id === caseId)[0].nickname, 'Juanito');
+  assert.ok(world.mail.slice(before).some(m => /portfolio updated/.test(m.subject)));
+  assert.strictEqual(post('load_f002', {}, portfolioToken).data.nickname, 'Juanito');
 });
 test('sessions and case notes are staff only and saved', () => {
   S.saveSession(caseId, { session: 'Intake', date: '2026-10-20', time_started: '09:00', time_ended: '10:00', attended_by: 'Case Manager' });
@@ -422,7 +468,12 @@ test('"No educational assistance needed" unlocks the waiver and retires the port
   waiverToken = tokenOf(r.link);
   assert.strictEqual(rows('Cases')[0].stage, 'WAIVER_PENDING');
   assert.strictEqual(status(portfolioToken).valid, false);
-  same(status(waiverToken), { ok: true, valid: true, portfolioOpen: false, waiverOpen: true });
+  same(status(waiverToken), { ok: true, valid: true, portfolioOpen: false, portfolioSubmitted: false, waiverOpen: true });
+});
+test('the decision locks the portfolio: no more loading, saving or submitting', () => {
+  assert.strictEqual(post('load_f002', {}, portfolioToken).ok, false);
+  assert.strictEqual(post('submit_f002', F002, portfolioToken).ok, false);
+  assert.strictEqual(post('save_f002', { consent: true }, portfolioToken).ok, false);
 });
 test('waiver checks: academic year runs one year, signature matches name', () => {
   const r = post('submit_waiver', { waiver_name: 'Juan Dela Cruz', ay_start: '2026', ay_end: '2028', semester: '1st', signature_name: 'J D C', consent: true }, waiverToken);
@@ -442,7 +493,7 @@ test('the case closes at End of Process', () => {
 });
 test('"Yes" goes to ISP (SOP-OVPAA-IEO-02) without a waiver', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'ISP Student' }));
-  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, STAFF); responded(r.ref);
   S.saveDocuments(r.ref, ['PDL'], ['bjmp_endorsement', 'cawo_clearance']);
   const t = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   assert.strictEqual(post('submit_f002', Object.assign({}, F002, { ip_member: 'No' }), t).ok, true);
@@ -454,7 +505,7 @@ test('"Yes" goes to ISP (SOP-OVPAA-IEO-02) without a waiver', () => {
 });
 test('reissuing a link invalidates the old one', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Reissue Student' }));
-  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, STAFF); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], ['coc']);
   const t1 = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   const t2 = tokenOf(S.reissueLink(r.ref).link);
@@ -463,7 +514,7 @@ test('reissuing a link invalidates the old one', () => {
 });
 test('expired links are refused', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Old Link' }));
-  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, STAFF); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], ['coc']);
   const t = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   const c = S.ieoFindCase_(r.ref);
@@ -474,7 +525,7 @@ test('expired links are refused', () => {
 test('closing early needs a reason, and cancels a future interview invite', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Withdrawn' }));
   assert.throws(() => S.closeCase(r.ref, ''), /reason/);
-  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, STAFF); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], ['coc']);
   S.proceedToInterview(r.ref, Object.assign({}, SCHED, { student_email: 'w@example.com', send_invite: true }));
   const evId = S.ieoFindCase_(r.ref).calendar_event_id;
@@ -497,7 +548,7 @@ function expire(ref) {
 test('three failed attempts (student, referrer, department head) close the referral', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Unreachable Student', s_program: 'Bachelor of Science in Psychology', s_department: 'whatever' }));
   assert.strictEqual(S.ieoFindCase_(r.ref).department, 'CAS', 'department taken from the program list');
-  S.saveRiskNote(r.ref, 'note');
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, STAFF);
   let v = S.getCase(r.ref).followUp;
   S.logContactAttempt(r.ref, { method: 'Email', to: v.draft.to, subject: v.draft.subject, body: v.draft.body });
   expire(r.ref);
@@ -534,7 +585,7 @@ test('three failed attempts (student, referrer, department head) close the refer
 });
 test('self referrals skip the referrer: two attempts, then closed', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Self Ref', r_source: 'Self', r_name: 'Self Ref', attest_name: 'Self Ref', s_program: 'Bachelor of Science in Biology' }));
-  S.saveRiskNote(r.ref, 'note');
+  S.saveRiskNote(r.ref, 'note'); S.assignCaseManager(r.ref, STAFF);
   const v = S.getCase(r.ref).followUp;
   same(v.plan.map(p => p.target), ['student', 'dept_head']);
   S.logContactAttempt(r.ref, { method: 'Phone', to: '0917' });
@@ -570,7 +621,7 @@ let ndRef;
 const F004 = { s_name: 'Santos, Ana', s_email: 'ana.santos@rtu.edu.ph', to_profession: 'Psychologist', to_name: 'Dr. Cruz', to_institution: 'City Clinic', notes: 'Free on Fridays', consent: true };
 test('a matching F004 request attaches to the case and counts as the student responding', () => {
   ndRef = post('submit_f001', Object.assign({}, F001, { s_name: 'Santos, Ana', s_email: 'ana.santos@rtu.edu.ph' })).ref;
-  S.saveRiskNote(ndRef, 'note');
+  S.saveRiskNote(ndRef, 'note'); S.assignCaseManager(ndRef, STAFF);
   S.logContactAttempt(ndRef, { method: 'Phone', to: '0917' });
   const before = world.mail.length;
   const r = post('submit_f004', Object.assign({ case_id: ndRef.toLowerCase() }, F004, { s_email: 'Ana.Santos@rtu.edu.ph' }));

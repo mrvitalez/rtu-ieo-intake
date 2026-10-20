@@ -38,7 +38,7 @@ The SOP flowchart, step by step, and what the system does at each step.
 | # | SOP flowchart step | Case stage in the sheet | What happens | Who |
 |---|---|---|---|---|
 | 1 | Start of Process | | The referrer opens F001. | Referrer |
-| 2 | Identify the Risk and Opportunity | (risk note) | F001 captures the *Reason for Referral* and *Other Observations*. Staff write the risk and opportunity note in the panel; the next steps stay locked until it is saved. | Referrer, IEO Staff |
+| 2 | Identify the Risk and Opportunity (IEO: Reason for Referral) | (review note, case manager) | F001 captures the *Reason for Referral* and *Other Observations*. Staff save a reason for referral review and assign a **case manager** from the staff list; the follow up stays locked until both are done. Once assigned, that case's alert emails go to the case manager. | Referrer, IEO Staff |
 | 3 | Submission of Referral Slip | `RECEIVED` | F001 is submitted. A case is created with a reference number (`IEO-2026-0001`). | Referrer |
 | 3a | Follow up (IEO step added after the SOP) | (follow up status) | Staff email the referred student to submit the required documents (ready template, editable). No reply after **3 working days**: contact the **referrer**. No reply again: contact the **department head** of the student's program (from the Programs tab). Self referrals skip the referrer. A reply at any attempt ends the follow up and opens step 4. No reply after the last attempt **closes the referral**; it can be reopened if the student gets in touch. Every attempt (email, phone, in person) is logged. | IEO Staff |
 | 4 | Submission of Required Document with Supporting Documents. *Do they have the required documents?* | `RECEIVED` / `DOCS_PENDING` | Staff choose the case category and tick the documents received. **Complete**: staff open the interview stage. **Incomplete**: IP and PDL students are asked to submit the documents; neurodivergent and physical or sensory cases without a clinical diagnosis may request one through F004, and staff issue the F003 from the panel for pickup at the IEO. | IEO Staff, Referred Student |
@@ -168,7 +168,7 @@ tests/                    Node tests with an in-memory Apps Script mock
 ## Testing
 
 ```
-node tests/run.js        # 77 checks: form options vs schema, validation, workflow order, access control
+node tests/run.js        # 84 checks: form options vs schema, validation, workflow order, access control
 node tests/e2e.js        # full SOP flow in a headless browser (needs Playwright)
 node tests/server.js     # local copy of everything at http://localhost:8765 (panel at /panel)
 ```

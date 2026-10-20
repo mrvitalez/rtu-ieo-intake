@@ -46,6 +46,7 @@
     </div>
 
     <form id="f002" data-ieo-form action="#" method="post" hidden>
+      <div id="saved-note" class="callout info" role="status" hidden></div>
       <div data-error-anchor></div>
       <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
       <p class="muted small">Fields marked <span class="req" aria-hidden="true">*</span><span class="hp">with an asterisk</span> are required. Your answers are sent only to the Inclusive Education Office.</p>
@@ -274,7 +275,9 @@
       </section>
 
       <div class="actions">
-        <button type="submit" class="btn">Submit student portfolio</button>
+        <button type="submit" class="btn" id="submit-portfolio">Submit student portfolio</button>
+        <button type="button" class="btn secondary" id="save-draft">Save progress</button>
+        <span class="small muted" id="save-hint">Not finished? Save your progress and come back with the same link. Tick the Data Privacy Consent first.</span>
       </div>
     </form>
 
@@ -319,7 +322,7 @@
         <p id="done-text">Thank you. The Inclusive Education Office has your portfolio and will continue your needs assessment.</p>
         <p class="small">Reference number: <strong id="done-ref"></strong><br>Submitted <span id="done-time"></span></p>
       </div>
-      <p class="muted small">For privacy, your answers are not shown again and this link cannot be used to view them.</p>
+      <p class="muted small">Keep your link private. Anyone with it can see and change your answers until the Inclusive Education Office records its decision.</p>
     </div>
   </div>
 </main>

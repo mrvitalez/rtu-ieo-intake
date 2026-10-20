@@ -6,7 +6,10 @@
  *
  * What this endpoint can do:
  *   POST submit_f001   create a case from a Referral Slip (F001)
- *   POST submit_f002   save a Student Portfolio (F002), only with a valid staff issued link
+ *   POST submit_f002   submit a Student Portfolio (F002), only with a valid staff issued link;
+ *                      can be repeated to make changes until the decision is recorded
+ *   POST save_f002     save F002 progress (after the Data Privacy Consent) before submitting
+ *   POST load_f002     give the link holder their own saved F002 answers back
  *   POST submit_waiver save the ISP waiver, only after staff marked "No educational assistance needed"
  *   POST submit_f004   a referred student requests a Referral Form for Clinical Diagnosis (F004);
  *                      the F003 itself is issued only by staff in the staff panel
@@ -17,9 +20,11 @@
  * Script properties (Project Settings > Script properties):
  *   SHEET_ID         set automatically by setup()
  *   ALERT_EMAILS     optional, comma separated: who gets an email when a form is submitted
+ *                    (once a case has a case manager, that case's alerts go to the case manager)
  *   STAFF_PANEL_URL  optional, the staff panel web app URL, included in alert emails
  *
- * It never returns stored records. Staff read data only through the staff panel project.
+ * It never returns another person's records. The only data it gives back is a student's own saved
+ * portfolio answers, to the holder of that student's personal link. Staff read data only through the staff panel.
  */
 
 function doGet(e) {
@@ -57,6 +62,8 @@ function doPost(e) {
     switch (body.action) {
       case 'submit_f001': return json_(submitF001_(data));
       case 'submit_f002': return json_(submitF002_(body.token, data));
+      case 'save_f002': return json_(saveF002Draft_(body.token, data));
+      case 'load_f002': return json_(loadF002_(body.token));
       case 'submit_waiver': return json_(submitWaiver_(body.token, data));
       case 'submit_f004': return json_(submitF004_(data));
       default: return json_({ ok: false, error: 'Unknown form.' });
@@ -117,21 +124,26 @@ function submitF001_(d) {
   notifyStaff_('New referral slip', caseId, [
     'A new Referral Slip for Needs Assessment (RTU-OVPAA-IEO-F001) was received.',
     'Referred by: ' + (o.r_source === 'Others' ? 'Others' : o.r_source),
-    'Next step: identify the risk and opportunity, then email the referred student to submit the required documents (follow up attempt 1).'
+    'Next step: review the reason for referral and assign a case manager, who emails the referred student to submit the required documents (follow up attempt 1).'
   ]);
   return { ok: true, ref: caseId, submittedAt: now };
 }
 
 /* ---------------- F002 Student Portfolio ---------------- */
 
-function submitF002_(token, d) {
+/** The portfolio stays open for saving and editing from the interview stage until the decision is recorded. */
+function portfolioCase_(token) {
   var c = ieoFindCaseByToken_(token);
   if (!c || c.link_purpose !== 'portfolio' || ieoLinkExpired_(c)) {
-    return { ok: false, error: 'This portfolio link is not valid or has expired. Ask the Inclusive Education Office for a new link.' };
+    return { error: 'This portfolio link is not valid or has expired. Ask the Inclusive Education Office for a new link.' };
   }
-  if (c.stage !== 'INTERVIEW') {
-    return { ok: false, error: 'This portfolio has already been submitted. Contact the Inclusive Education Office if you need to make changes.' };
+  if (['INTERVIEW', 'PORTFOLIO_SUBMITTED'].indexOf(c.stage) < 0) {
+    return { error: 'This portfolio can no longer be changed because the Inclusive Education Office has recorded its decision.' };
   }
+  return { c: c };
+}
+
+function validateF002_(d) {
   var v = new Validator_(d);
   v.text('course', true).text('last_name', true).text('first_name', true).text('middle_name', false)
     .text('nickname', false).text('present_address', true).text('provincial_address', false)
@@ -153,21 +165,82 @@ function submitF002_(token, d) {
     if (v.list('ip_groups').indexOf('Others') >= 0) v.text('ip_other', true); else v.out.ip_other = '';
   } else { v.out.ip_groups = []; v.out.ip_other = ''; }
   if (v.list('disabilities').indexOf('Others') >= 0) v.text('disability_other', true); else v.out.disability_other = '';
-  if (!v.ok()) return v.result();
+  return v;
+}
 
-  var now = ieoNow_();
-  ieoAppend_('F002_Portfolios', Object.assign({ case_id: c.case_id, submitted_at: now }, v.out, {
+/** One row per case: the student's saved or submitted portfolio. */
+function savePortfolioRow_(c, v, status, now) {
+  var rec = Object.assign({}, v.out, {
     ip_groups: v.list('ip_groups').join('; '),
     disabilities: v.list('disabilities').join('; '),
-    photo_note_ack: 'Yes', disclaimer_ack: 'Yes', consent: 'Yes'
-  }));
-  ieoUpdate_('Cases', c._row, { stage: 'PORTFOLIO_SUBMITTED', portfolio_submitted_at: now, updated_at: now, updated_by: 'F002 student link' });
-  ieoAudit_('student link', 'F002_SUBMITTED', c.case_id, 'Student portfolio submitted');
-  notifyStaff_('Student portfolio submitted', c.case_id, [
-    'The student submitted the Student Portfolio Form for Inclusive Education (RTU-OVPAA-IEO-F002).',
+    photo_note_ack: v.out.photo_note_ack ? 'Yes' : '', disclaimer_ack: v.out.disclaimer_ack ? 'Yes' : '', consent: 'Yes',
+    status: status, last_saved_at: now
+  });
+  var existing = ieoReadAll_('F002_Portfolios').filter(function (r) { return String(r.case_id) === String(c.case_id); }).pop();
+  if (existing) {
+    if (status === 'Submitted' && !existing.submitted_at) rec.submitted_at = now;
+    ieoUpdate_('F002_Portfolios', existing._row, rec);
+    return existing;
+  }
+  rec.case_id = c.case_id;
+  rec.submitted_at = status === 'Submitted' ? now : '';
+  ieoAppend_('F002_Portfolios', rec);
+  return null;
+}
+
+/** Final submit. Can be repeated to make changes until the decision is recorded. */
+function submitF002_(token, d) {
+  var pc = portfolioCase_(token);
+  if (pc.error) return { ok: false, error: pc.error };
+  var c = pc.c;
+  var v = validateF002_(d);
+  if (!v.ok()) return v.result();
+  var now = ieoNow_();
+  var resubmit = c.stage === 'PORTFOLIO_SUBMITTED';
+  savePortfolioRow_(c, v, 'Submitted', now);
+  ieoUpdate_('Cases', c._row, { stage: 'PORTFOLIO_SUBMITTED', portfolio_submitted_at: resubmit ? c.portfolio_submitted_at : now, updated_at: now, updated_by: 'F002 student link' });
+  ieoAudit_('student link', resubmit ? 'F002_UPDATED' : 'F002_SUBMITTED', c.case_id, resubmit ? 'Student portfolio changed after submitting' : 'Student portfolio submitted');
+  notifyStaff_(resubmit ? 'Student portfolio updated' : 'Student portfolio submitted', c.case_id, [
+    resubmit ? 'The student changed their Student Portfolio Form for Inclusive Education (RTU-OVPAA-IEO-F002) after submitting it.'
+      : 'The student submitted the Student Portfolio Form for Inclusive Education (RTU-OVPAA-IEO-F002).',
     'Next step: complete the needs assessment interview and record whether the student requires educational assistance.'
   ]);
-  return { ok: true, ref: c.case_id, submittedAt: now };
+  return { ok: true, ref: c.case_id, submittedAt: now, updated: resubmit };
+}
+
+/** Save progress without the required answers. Needs the Data Privacy Consent first. Not after submitting. */
+function saveF002Draft_(token, d) {
+  var pc = portfolioCase_(token);
+  if (pc.error) return { ok: false, error: pc.error };
+  var c = pc.c;
+  if (c.stage === 'PORTFOLIO_SUBMITTED') {
+    return { ok: false, error: 'You already submitted your portfolio. To change it, edit your answers and submit again.' };
+  }
+  var v = validateF002_(d);
+  if (!v.out.consent) {
+    return { ok: false, error: 'Some answers need attention.', fields: { consent: 'Tick the Data Privacy Consent at the bottom of the form to save your progress.' } };
+  }
+  var now = ieoNow_();
+  savePortfolioRow_(c, v, 'Draft', now);
+  ieoAudit_('student link', 'F002_DRAFT_SAVED', c.case_id, 'Student saved progress');
+  return { ok: true, ref: c.case_id, savedAt: now };
+}
+
+/** Returns the student's own saved answers to the holder of their personal link. */
+function loadF002_(token) {
+  var pc = portfolioCase_(token);
+  if (pc.error) return { ok: false, error: pc.error };
+  var row = ieoReadAll_('F002_Portfolios').filter(function (r) { return String(r.case_id) === String(pc.c.case_id); }).pop();
+  if (!row) return { ok: true, data: null };
+  var data = {};
+  IEO.SHEETS.F002_Portfolios.forEach(function (k) {
+    if (['case_id', 'submitted_at', 'status', 'last_saved_at'].indexOf(k) >= 0) return;
+    var val = row[k] == null ? '' : String(row[k]);
+    if (k === 'ip_groups' || k === 'disabilities') data[k] = val ? val.split('; ') : [];
+    else if (['photo_note_ack', 'disclaimer_ack', 'consent'].indexOf(k) >= 0) data[k] = val === 'Yes';
+    else data[k] = val;
+  });
+  return { ok: true, data: data, status: row.status || 'Submitted', lastSavedAt: row.last_saved_at || row.submitted_at, submittedAt: row.submitted_at };
 }
 
 /* ---------------- F002 ISP Waiver ---------------- */
@@ -252,7 +325,8 @@ function linkStatus_(token) {
   return {
     ok: true,
     valid: true,
-    portfolioOpen: c.link_purpose === 'portfolio' && c.stage === 'INTERVIEW',
+    portfolioOpen: c.link_purpose === 'portfolio' && (c.stage === 'INTERVIEW' || c.stage === 'PORTFOLIO_SUBMITTED'),
+    portfolioSubmitted: c.link_purpose === 'portfolio' && c.stage === 'PORTFOLIO_SUBMITTED',
     waiverOpen: c.link_purpose === 'waiver' && c.stage === 'WAIVER_PENDING'
   };
 }
@@ -268,6 +342,9 @@ function notifyStaff_(what, caseId, lines) {
   try {
     var props = PropertiesService.getScriptProperties();
     var to = String(props.getProperty('ALERT_EMAILS') || '').split(',').map(function (s) { return s.trim(); }).filter(String);
+    // Once a case has a case manager, its alerts go to them instead of the general alert list.
+    var existing = caseId ? ieoFindCase_(caseId) : null;
+    if (existing && existing.case_manager) to = [String(existing.case_manager)];
     if (!to.length) return;
     var panel = String(props.getProperty('STAFF_PANEL_URL') || '');
     var body = lines.concat([

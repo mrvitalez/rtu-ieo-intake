@@ -108,14 +108,18 @@ async function shot(page, name, full) {
     await panel.goto(BASE + 'panel');
     await panel.click('button[data-id="' + ref + '"]');
     await panel.waitForSelector('ol.stepper');
-    assert.match(await panel.textContent('[aria-current=step]'), /Identify the risk/);
+    assert.match(await panel.textContent('[aria-current=step]'), /Reason for referral/);
     await shot(panel, 'panel-new-case', true);
   });
 
   await step('staff panel: documents gate the interview; F003 is issued and printed', async () => {
-    await panel.fill('#risk', 'Risk: falling behind in reading. Opportunity: early accommodations.');
+    await panel.fill('#risk', 'Reading difficulty confirmed by the referrer; early accommodations may help.');
     await panel.click('#saveRisk');
-    await panel.waitForFunction(() => /Submission of required/.test(document.querySelector('[aria-current=step]').textContent));
+    await panel.waitForFunction(() => /review saved/.test(document.getElementById('toast').textContent));
+    assert.match(await panel.textContent('#detail'), /Assign a case manager|assign a case manager/);
+    await panel.selectOption('#cmSelect', 'case.manager@rtu.edu.ph');
+    await panel.click('#assignCm');
+    await panel.waitForFunction(() => /Follow up/.test(document.querySelector('[aria-current=step]').textContent));
     // Follow up attempt 1: email the student, then record the reply
     await panel.waitForSelector('#fuSend');
     assert.strictEqual(await panel.inputValue('#fuTo'), 'juan@example.com');
@@ -177,8 +181,22 @@ async function shot(page, name, full) {
     await page.goto(link);
     await page.waitForSelector('#f002:not([hidden])');
     assert.ok(await page.locator('#waiver').isHidden(), 'waiver not available yet');
-    await page.check('#disclaimer_ack');
+    // save progress needs the consent, then the answers come back after reopening the link
     await page.fill('#course', 'BS Electronics Engineering');
+    await page.click('#save-draft');
+    await page.waitForSelector('#f002 .error-summary');
+    assert.match(await page.textContent('#f002 .error-summary'), /Data Privacy Consent/);
+    await page.check('#consent');
+    await page.fill('#nickname', 'Jun');
+    await page.click('#save-draft');
+    await page.waitForSelector('.form-notice.success');
+    await page.goto(BASE + 'index.html');
+    await page.goto(link);
+    await page.waitForSelector('#saved-note:not([hidden])');
+    assert.strictEqual(await page.inputValue('#nickname'), 'Jun', 'saved answers loaded');
+    assert.ok(await page.isChecked('#consent'));
+    await shot(page, 'f002-resumed');
+    await page.check('#disclaimer_ack');
     await page.fill('#last_name', 'Dela Cruz');
     await page.fill('#first_name', 'Juan');
     await page.fill('#middle_name', 'Santos');
@@ -209,10 +227,17 @@ async function shot(page, name, full) {
     assert.match(await page.textContent('#done-title'), /portfolio submitted/);
   });
 
-  await step('F002 link cannot be used again', async () => {
+  await step('F002: after submitting, the student can reopen the link, change answers and submit again', async () => {
     await page.goto(BASE + 'index.html');
     await page.goto(link);
-    await page.waitForFunction(() => /Nothing to fill in/.test(document.getElementById('gate').textContent));
+    await page.waitForSelector('#saved-note:not([hidden])');
+    assert.match(await page.textContent('#saved-note'), /You submitted this portfolio/);
+    assert.ok(await page.locator('#save-draft').isHidden());
+    assert.strictEqual(await page.textContent('#submit-portfolio'), 'Submit changes');
+    await page.fill('#nickname', 'Juanito');
+    await page.click('#submit-portfolio');
+    await page.waitForSelector('#done:not([hidden])');
+    assert.match(await page.textContent('#done-title'), /Changes submitted/);
   });
 
   let waiverLink;
@@ -288,7 +313,10 @@ async function shot(page, name, full) {
     assert.match(await panel.textContent('#detail'), /Student requests for F003/);
     await panel.fill('#risk', 'note');
     await panel.click('#saveRisk');
-    await panel.waitForFunction(() => /Responded/.test(document.getElementById('detail').textContent));
+    await panel.waitForFunction(() => /review saved/.test(document.getElementById('toast').textContent));
+    await panel.selectOption('#cmSelect', 'case.manager@rtu.edu.ph');
+    await panel.click('#assignCm');
+    await panel.waitForFunction(() => /Responded/.test(document.getElementById('detail').textContent) && /Case manager/.test(document.getElementById('detail').textContent));
     await panel.check('input[name=cat][value=PHYSICAL_SENSORY]');
     await panel.click('#openF003');
     await panel.waitForSelector('#f003Dialog[open]');

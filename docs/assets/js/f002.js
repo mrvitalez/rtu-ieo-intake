@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function () {
           '<p>Ask the Inclusive Education Office for a new link. Links stay valid for 30 days.</p>');
       } else if (s.portfolioOpen) {
         open(portfolio);
+        loadSaved(s.portfolioSubmitted);
       } else if (s.waiverOpen) {
         open(waiver);
         document.getElementById('waiver_name').focus();
@@ -65,6 +66,56 @@ document.addEventListener('DOMContentLoaded', function () {
         '<p>Check your internet connection and reload this page. If it keeps happening, contact the Inclusive Education Office.</p>');
     });
   }
+
+  var savedNote = document.getElementById('saved-note');
+  var draftBtn = document.getElementById('save-draft');
+  var submitBtn = document.getElementById('submit-portfolio');
+  function showSubmittedMode(submittedAt) {
+    draftBtn.hidden = true;
+    document.getElementById('save-hint').hidden = true;
+    submitBtn.textContent = 'Submit changes';
+    savedNote.innerHTML = '<p><strong>You submitted this portfolio' + (submittedAt ? ' on ' + F.escapeHtml(submittedAt) : '') + '.</strong> ' +
+      'You can still change your answers and submit again until the Inclusive Education Office records its decision.</p>';
+    savedNote.hidden = false;
+  }
+  function loadSaved(submitted) {
+    F.post({ action: 'load_f002', token: token }).then(function (res) {
+      if (!res || !res.ok || !res.data) return;
+      F.fillForm(portfolio, res.data);
+      if (submitted || res.status === 'Submitted') { showSubmittedMode(res.submittedAt); return; }
+      savedNote.innerHTML = '<p><strong>Your saved answers are loaded.</strong> Last saved ' + F.escapeHtml(res.lastSavedAt) + '. Continue where you left off.</p>';
+      savedNote.hidden = false;
+    }).catch(function () { /* the empty form still works */ });
+    if (submitted) showSubmittedMode('');
+  }
+
+  draftBtn.addEventListener('click', function () {
+    var data = F.readForm(portfolio);
+    delete data.website;
+    if (!data.consent) {
+      F.showErrors(portfolio, { consent: 'Tick the Data Privacy Consent at the bottom of the form to save your progress.' }, 'Before saving');
+      return;
+    }
+    if (!F.endpoint()) {
+      F.showNotice(portfolio, 'warn', 'Preview mode', 'Nothing is saved in the preview.');
+      return;
+    }
+    F.clearErrors(portfolio);
+    draftBtn.disabled = true;
+    var label = draftBtn.textContent;
+    draftBtn.textContent = 'Saving';
+    F.post({ action: 'save_f002', token: token, data: data, website: '' }).then(function (res) {
+      if (res && res.ok) {
+        F.showNotice(portfolio, 'success', 'Progress saved', 'Saved ' + F.nowText() + '. You can close this page and come back with the same link.');
+      } else if (res && res.fields) {
+        F.showErrors(portfolio, res.fields, res.error);
+      } else {
+        F.showNotice(portfolio, 'error', 'Not saved', (res && res.error) || 'Your progress could not be saved. Please try again.');
+      }
+    }).catch(function () {
+      F.showNotice(portfolio, 'error', 'Not saved', 'Check your internet connection and try again. Your answers are still on this page.');
+    }).then(function () { draftBtn.disabled = false; draftBtn.textContent = label; });
+  });
 
   function finish(res, title, text) {
     portfolio.hidden = true;
@@ -92,7 +143,8 @@ document.addEventListener('DOMContentLoaded', function () {
       return e;
     },
     onSuccess: function (res) {
-      finish(res, 'Student portfolio submitted', 'Thank you. The Inclusive Education Office has your portfolio and will continue your needs assessment with you.');
+      finish(res, res.updated ? 'Changes submitted' : 'Student portfolio submitted',
+        'Thank you. The Inclusive Education Office has your portfolio. To change an answer, open your link again before the office records its decision.');
     }
   });
 

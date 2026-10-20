@@ -103,7 +103,7 @@
       <label class="visually-hidden" for="q">Search cases</label>
       <input type="search" id="q" placeholder="Search name, student no., or reference">
       <label class="visually-hidden" for="stageFilter">Filter by stage</label>
-      <select id="stageFilter"><option value="">All open cases</option><option value="followup">Follow ups due</option><option value="f004">F003 requests</option><option value="upcoming">Upcoming interviews</option><option value="*">All cases, including closed</option></select>
+      <select id="stageFilter"><option value="">All open cases</option><option value="mine">My cases</option><option value="followup">Follow ups due</option><option value="f004">F003 requests</option><option value="upcoming">Upcoming interviews</option><option value="*">All cases, including closed</option></select>
       <button class="btn alt" id="refresh" type="button">Refresh list</button>
     </div>
     <p id="count" class="visually-hidden" aria-live="polite"></p>
@@ -302,6 +302,7 @@
     var shown = cases.filter(function (c) {
       if (st === 'upcoming') return c.stage !== 'CLOSED' && c.interview_start && c.interview_end >= nowText;
       if (st === 'f004') return c.f004_pending;
+      if (st === 'mine') return c.stage !== 'CLOSED' && c.case_manager === cfg.staffEmail;
       if (st === 'followup') return c.stage !== 'CLOSED' && (c.followup_status === 'NOT_STARTED' || !c.followup_status ||
         (c.followup_status === 'IN_PROGRESS' && (!c.followup_due || c.followup_due <= nowText.slice(0, 10)))) && ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0;
       if (st === '' && c.stage === 'CLOSED') return false;
@@ -322,19 +323,21 @@
         (c.stage !== 'CLOSED' && c.followup_status === 'IN_PROGRESS' && c.followup_due ? '<span class="meta">Follow up: waiting for reply until ' + esc(c.followup_due) + '</span>' : '') +
         (c.stage === 'CLOSED' && c.followup_status === 'UNREACHABLE' ? '<span class="meta">Closed: no response</span>' : '') +
         (c.f004_pending ? '<span class="meta"><strong>F003 requested by the student</strong></span>' : '') +
+        (c.stage !== 'CLOSED' ? '<span class="meta">' + (c.case_manager ? 'Case manager: ' + esc(c.case_manager) : '<strong>No case manager yet</strong>') + '</span>' : '') +
         '</button></li>';
     }).join('') : '<li class="empty" style="padding:1rem">No cases match.</li>';
     if (unmatched) $('cases').insertAdjacentHTML('afterbegin', unmatched);
   }
 
   /* ---------- detail ---------- */
-  var STEPS = ['Start of process', 'Identify the risk and opportunity', 'Submission of referral slip', 'Submission of required documents',
-    'Needs assessment interview and student portfolio', 'Educational assistance decision', 'End of process'];
+  // The IEO's 7 stages (as on the public home page)
+  var STEPS = ['Referral', 'Reason for referral', 'Follow up', 'Required documents',
+    'Interview and student portfolio', 'Educational assistance decision', 'End of process'];
   function stepState(c) {
-    var s = c.stage;
-    // number of the SOP step that is in progress (steps before it are done)
-    var idx = { RECEIVED: 4, DOCS_PENDING: 4, INTERVIEW: 5, PORTFOLIO_SUBMITTED: 6, WAIVER_PENDING: 6, ISP: 7, WAIVER_SIGNED: 7, CLOSED: 8 }[s];
-    if (!c.risk_opportunity_note && idx <= 4) idx = 2;
+    // number of the stage in progress (stages before it are done)
+    var idx = { RECEIVED: 4, DOCS_PENDING: 4, INTERVIEW: 5, PORTFOLIO_SUBMITTED: 6, WAIVER_PENDING: 6, ISP: 7, WAIVER_SIGNED: 7, CLOSED: 8 }[c.stage];
+    if (idx === 4 && c.followup_status !== 'RESPONDED') idx = 3;
+    if (idx <= 4 && (!c.risk_opportunity_note || !c.case_manager)) idx = 2;
     return idx;
   }
 
@@ -372,19 +375,28 @@
 
     // Referral slip
     var r = v.referral || {};
-    html += '<section class="card"><span class="step">Stage 3</span><h3>Referral Slip (RTU-OVPAA-IEO-F001)</h3>' +
+    html += '<section class="card"><span class="step">Stage 1</span><h3>Referral Slip (RTU-OVPAA-IEO-F001)</h3>' +
       kv(r, [['submitted_at', 'Received'], ['s_name', 'Name'], ['s_program', 'Program'], ['s_department', 'Department'], ['s_student_no', 'Student No.'], ['s_email', 'Student email'],
         ['s_birthday', 'Birthday'], ['s_age', 'Age'], ['s_sex', 'Sex'], ['reasons', 'Reason for referral'], ['reason_other', 'Other reason'],
         ['r_source', 'Referred by'], ['r_source_other', 'Source (others)'], ['r_name', 'Referring person'], ['r_designation', 'Designation'],
         ['r_department', 'Department'], ['r_contact', 'Contact no.'], ['r_email', 'Email'], ['observations', 'Other observations'], ['attest_name', 'Signed (typed name)']]) +
       '</section>';
 
-    // Risk and opportunity
-    var riskNow = !c.risk_opportunity_note && c.stage !== 'CLOSED';
-    html += '<section class="card' + (riskNow ? ' current' : '') + '"><span class="step">Stage 2</span><h3>Identify the risk and opportunity</h3>' +
-      '<label class="lbl" for="risk">Risk and opportunity note</label>' +
-      '<textarea id="risk" maxlength="4000"' + (c.stage === 'CLOSED' ? ' disabled' : '') + '>' + esc(c.risk_opportunity_note) + '</textarea>' +
-      (c.stage === 'CLOSED' ? '' : '<div class="row"><button class="btn" id="saveRisk" type="button">Save note</button></div>') + '</section>';
+    // Stage 2: reason for referral review and case manager
+    var riskNow = (!c.risk_opportunity_note || !c.case_manager) && c.stage !== 'CLOSED';
+    html += '<section class="card' + (riskNow ? ' current' : '') + '"><span class="step">Stage 2</span><h3>Reason for referral</h3>' +
+      '<p style="margin-top:0">Reason given: <strong>' + esc((v.referral && v.referral.reasons) || 'none') + '</strong>' +
+      (v.referral && v.referral.reason_other ? ' (' + esc(v.referral.reason_other) + ')' : '') + '</p>' +
+      '<label class="lbl" for="risk">Reason for referral review</label>' +
+      '<textarea id="risk" maxlength="4000" placeholder="Your review of the reason for referral and the observations"' + (c.stage === 'CLOSED' ? ' disabled' : '') + '>' + esc(c.risk_opportunity_note) + '</textarea>' +
+      (c.stage === 'CLOSED' ? '' : '<div class="row"><button class="btn" id="saveRisk" type="button">Save review</button></div>') +
+      '<label class="lbl" for="cmSelect" style="margin-top:1rem">Case manager</label>' +
+      (c.stage === 'CLOSED' ? '<p style="margin:0">' + esc(c.case_manager || 'Not assigned') + '</p>' :
+        '<div class="row" style="margin-top:0"><select id="cmSelect" style="max-width:24rem"><option value="">Choose a case manager</option>' +
+        cfg.staffList.map(function (m) { return '<option value="' + esc(m) + '"' + (c.case_manager === m ? ' selected' : '') + '>' + esc(m) + (m === cfg.staffEmail ? ' (you)' : '') + '</option>'; }).join('') +
+        '</select><button class="btn alt" id="assignCm" type="button">' + (c.case_manager ? 'Change' : 'Assign') + '</button></div>' +
+        (c.case_manager ? '<p style="margin:0.4rem 0 0;font-size:0.9rem;color:var(--soft)">Assigned ' + esc(c.case_manager_assigned_at) + '. Alert emails for this case go to the case manager.</p>' : '')) +
+      '</section>';
 
     // Follow up
     html += followUpCard(v, c);
@@ -426,7 +438,7 @@
 
     // Interview and portfolio
     var interviewOn = stageOrder.indexOf(c.stage) >= stageOrder.indexOf('INTERVIEW');
-    html += '<section class="card' + (at(['INTERVIEW']) ? ' current' : '') + '"><span class="step">Stage 5</span><h3>Needs assessment interview and student portfolio (RTU-OVPAA-IEO-F002)</h3>';
+    html += '<section class="card' + (at(['INTERVIEW']) ? ' current' : '') + '"><span class="step">Stage 5</span><h3>Interview and Student Portfolio (RTU-OVPAA-IEO-F002)</h3>';
     if (!interviewOn) {
       html += '<p class="msg info">Opens when the required documents are complete.</p>';
     } else {
@@ -442,7 +454,10 @@
       }
       if (v.portfolio) {
         var p = v.portfolio;
-        html += '<details' + (c.stage === 'PORTFOLIO_SUBMITTED' ? ' open' : '') + '><summary><strong>Student portfolio</strong>, submitted ' + esc(p.submitted_at) + '</summary>' +
+        var draft = p.status === 'Draft';
+        html += '<details' + (c.stage === 'PORTFOLIO_SUBMITTED' ? ' open' : '') + '><summary><strong>Student portfolio</strong> ' +
+          (draft ? '<span class="badge wait">Draft, not submitted yet</span>' : '<span class="badge done">Submitted ' + esc(p.submitted_at) + '</span>') +
+          (p.last_saved_at ? ' <span style="font-size:0.88rem;color:var(--soft)">last saved ' + esc(p.last_saved_at) + '</span>' : '') + '</summary>' +
           kv(p, [['course', 'Course'], ['last_name', 'Last name'], ['first_name', 'First name'], ['middle_name', 'Middle name'], ['nickname', 'Nickname'],
             ['present_address', 'Present address'], ['provincial_address', 'Provincial address'], ['age', 'Age'], ['sex', 'Sex'], ['civil_status', 'Civil status'],
             ['religion', 'Religion'], ['nationality', 'Nationality'], ['telephone', 'Telephone no.'], ['mobile', 'Mobile no.'], ['email', 'Email'], ['pwd_id', 'PWD ID No.'],
@@ -482,7 +497,7 @@
     // Decision
     html += '<section class="card' + (at(['PORTFOLIO_SUBMITTED', 'WAIVER_PENDING']) ? ' current' : '') + '"><span class="step">Stage 6</span><h3>Do they require educational assistance?</h3>';
     if (c.stage === 'PORTFOLIO_SUBMITTED') {
-      html += '<p style="margin-top:0">Record the result of the needs assessment.</p><div class="row">' +
+      html += '<p style="margin-top:0">Record the result of the needs assessment. Until then the student can still change their portfolio; recording the decision locks it.</p><div class="row">' +
         '<button class="btn" id="decYes" type="button">Yes: proceed with Formulation of ISP (SOP-OVPAA-IEO-02)</button>' +
         '<button class="btn alt" id="decNo" type="button">No educational assistance needed: unlock the waiver</button></div>';
     } else if (c.decision) {
@@ -520,9 +535,9 @@
     var f = v.followUp;
     var inScope = ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0 || f.attempts.length;
     if (!inScope) return '';
-    var current = ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0 && f.status !== 'RESPONDED' && c.risk_opportunity_note;
+    var current = ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0 && f.status !== 'RESPONDED' && c.risk_opportunity_note && c.case_manager;
     var order = f.plan.map(function (p, i) { return (i + 1) + '. ' + esc(p.label); }).join(', then ');
-    var html = '<section class="card' + (current ? ' current' : '') + '"><span class="step">Stage 4</span><h3>Follow up: ask for the required documents</h3>';
+    var html = '<section class="card' + (current ? ' current' : '') + '"><span class="step">Stage 3</span><h3>Follow up: ask for the required documents</h3>';
     html += '<p style="margin-top:0">Order: ' + order + '. Each attempt waits ' + f.waitDays + ' working days for a reply. ' +
       (f.selfReferral ? 'This is a self referral, so the referrer step is skipped. ' : '') + 'No response after the last attempt closes the referral.</p>';
     var statusText = { NOT_STARTED: 'Not started', IN_PROGRESS: 'Waiting for a reply', RESPONDED: 'Responded', UNREACHABLE: 'Closed: no response' }[f.status] || f.status;
@@ -545,8 +560,8 @@
         '<button class="btn ' + (last ? 'danger' : 'alt') + '" id="fuNoResponse" type="button"' + (canNo ? '' : ' disabled') + '>' + (last ? 'No response: close referral' : 'No response: go to next attempt') + '</button>' +
         (canNo ? '' : '<span style="font-size:0.9rem;color:var(--soft)">Available from ' + esc(f.pending.due_date) + '</span>') + '</div>';
     } else if (f.next && c.stage !== 'CLOSED') {
-      if (!c.risk_opportunity_note) {
-        html += '<p class="msg info">Save the risk and opportunity note first.</p>';
+      if (!c.risk_opportunity_note || !c.case_manager) {
+        html += '<p class="msg info">Save the reason for referral review and assign a case manager first.</p>';
       } else {
         var d = f.draft || {};
         html += '<h3 style="margin-top:1rem">Attempt ' + f.nextNo + ' of ' + f.total + ': ' + esc(f.next.label) + (f.next.name ? ', ' + esc(f.next.name) : '') + '</h3>';
@@ -629,7 +644,7 @@
       $('markPending').disabled = ev.complete || !view.caseRecord.risk_opportunity_note || !responded;
       $('openF003').disabled = !ev.f003Eligible || !responded;
       if (!responded) $('docEval').insertAdjacentHTML('afterbegin', '<div class="msg info">These steps open once the student (or someone for them) responds to the follow up above.</div>');
-      $('toInterview').title = !view.caseRecord.risk_opportunity_note ? 'Save the risk and opportunity note first' : (ev.complete ? '' : 'Required documents are incomplete');
+      $('toInterview').title = !view.caseRecord.risk_opportunity_note ? 'Save the reason for referral review first' : (ev.complete ? '' : 'Required documents are incomplete');
     }
   }
 
@@ -637,7 +652,7 @@
     var c = view.caseRecord, id = c.case_id;
     var on = function (elId, fn) { var el = $(elId); if (el) el.addEventListener('click', fn); };
 
-    on('saveRisk', function (e) { busy(e.target, true); call('saveRiskNote', id, $('risk').value).then(function () { return reload('Risk and opportunity note saved.'); }).catch(fail).then(function () { busy(e.target, false); }); });
+    on('saveRisk', function (e) { busy(e.target, true); call('saveRiskNote', id, $('risk').value).then(function () { return reload('Reason for referral review saved.'); }).catch(fail).then(function () { busy(e.target, false); }); });
 
     document.querySelectorAll('input[name=cat]').forEach(function (el) { el.addEventListener('change', renderDocs); });
     $('docLists').addEventListener('change', renderDocs);
@@ -704,6 +719,12 @@
       call('recordDecision', id, false).then(function (res) { freshLink = { purpose: 'waiver', link: res.link }; return reload('Waiver unlocked. Give the student the waiver link.'); }).catch(fail);
     });
 
+    on('assignCm', function (e) {
+      var m = $('cmSelect').value;
+      if (!m) { toast('err', 'Choose a case manager.'); return; }
+      busy(e.target, true);
+      call('assignCaseManager', id, m).then(function () { return reload('Case manager assigned: ' + m + '.'); }).catch(fail);
+    });
     on('fuSend', function (e) {
       var method = $('fuMethod').value;
       var a = { method: method, to: $('fuTo').value.trim(), note: $('fuNote').value.trim() };

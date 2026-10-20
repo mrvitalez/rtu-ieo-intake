@@ -35,7 +35,7 @@ var IEO = {
   LINK_VALID_DAYS: 30,
 
   /** Public endpoint flood guard: accepted submissions per minute, all forms combined. */
-  MAX_SUBMISSIONS_PER_MINUTE: 30,
+  MAX_SUBMISSIONS_PER_MINUTE: 60,
 
   MAX_TEXT: 300,
   MAX_LONG_TEXT: 4000,
@@ -231,7 +231,7 @@ var IEO = {
       'closed_at', 'close_reason', 'updated_at', 'updated_by',
       'student_email', 'interview_start', 'interview_end', 'interview_mode', 'interview_venue',
       'calendar_event_id', 'interview_scheduled_by', 'interview_scheduled_at',
-      'followup_status', 'followup_due'],
+      'followup_status', 'followup_due', 'case_manager', 'case_manager_assigned_at'],
     F001_Referrals: ['case_id', 'submitted_at', 's_name', 's_program', 's_department', 's_student_no',
       's_birthday', 's_age', 's_sex', 'reasons', 'reason_other', 'r_name', 'r_contact', 'r_department',
       'r_email', 'r_designation', 'r_source', 'r_source_other', 'observations', 'attest_name',
@@ -242,7 +242,7 @@ var IEO = {
       'emergency_name', 'emergency_relationship', 'emergency_address', 'emergency_contact',
       'elem_school', 'elem_year', 'jhs_school', 'jhs_year', 'shs_school', 'shs_year', 'shs_track',
       'shs_strand', 'disabilities', 'disability_other', 'medications', 'precautions',
-      'photo_note_ack', 'disclaimer_ack', 'consent', 'signature_name'],
+      'photo_note_ack', 'disclaimer_ack', 'consent', 'signature_name', 'status', 'last_saved_at'],
     F002_Waivers: ['case_id', 'signed_at', 'waiver_name', 'ay_start', 'ay_end', 'semester',
       'signature_name', 'consent'],
     F003_Referrals: ['f003_id', 'case_id', 'recorded_at', 'recorded_by', 'date_issued', 'to_name',
