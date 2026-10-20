@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #17202e; --soft: #46536a; --blue: #1f4fa3; --blue-d: #163a7a; --teal: #157d88; --violet: #6b45c8;
+    --surface: #f3f6fa; --paper: #fff; --line: #c3cedd; --line-s: #8796ad;
+    --err: #b3261e; --err-bg: #fdeeed; --ok: #17663d; --ok-bg: #e8f5ee; --warn-bg: #fff6dc; --focus: #f2b705;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--surface); color: var(--ink); font: 16px/1.5 "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  header.top { background: var(--paper); border-bottom: 1px solid var(--line); padding: 0.6rem 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
+  header.top h1 { font-size: 1.15rem; margin: 0; color: var(--blue-d); }
+  header.top .who { color: var(--soft); font-size: 0.9rem; }
+  .layout { display: grid; grid-template-columns: minmax(18rem, 24rem) 1fr; min-height: calc(100vh - 3.2rem); }
+  @media (max-width: 52rem) { .layout { grid-template-columns: 1fr; } .list-pane { max-height: 50vh; } }
+  .list-pane { border-right: 1px solid var(--line); background: var(--paper); display: flex; flex-direction: column; overflow: hidden; }
+  .filters { padding: 0.75rem; border-bottom: 1px solid var(--line); display: grid; gap: 0.5rem; }
+  .cases { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+  .cases button { all: unset; box-sizing: border-box; display: block; width: 100%; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .cases button:hover { background: #f6f8fc; }
+  .cases button[aria-current="true"] { background: #e6edf8; box-shadow: inset 4px 0 0 var(--blue); }
+  .cases .name { font-weight: 700; display: block; }
+  .cases .meta { font-size: 0.85rem; color: var(--soft); display: block; }
+  .detail { padding: 1rem clamp(0.75rem, 3vw, 2rem) 4rem; overflow-y: auto; }
+  .empty { color: var(--soft); padding: 2rem 0; }
+  h2 { font-size: 1.35rem; margin: 0 0 0.25rem; }
+  h3 { font-size: 1.05rem; margin: 0 0 0.6rem; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.15rem; margin: 1rem 0; }
+  .card.current { border-color: var(--blue); box-shadow: 0 0 0 2px #dbe5f6; }
+  .card .step { font-size: 0.85rem; color: var(--soft); display: block; margin-bottom: 0.15rem; }
+  .badge { display: inline-block; font-size: 0.85rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 999px; background: #e6edf8; color: var(--blue-d); }
+  .badge.done { background: var(--ok-bg); color: var(--ok); }
+  .badge.wait { background: var(--warn-bg); color: #6b5200; }
+  ol.stepper { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; padding: 0; margin: 0.75rem 0 0; }
+  ol.stepper li { font-size: 0.82rem; padding: 0.25rem 0.55rem; border-radius: 6px; border: 1px solid var(--line); color: var(--soft); background: var(--paper); }
+  ol.stepper li.done { border-color: #a9d6bb; background: var(--ok-bg); color: var(--ok); }
+  ol.stepper li.now { border-color: var(--blue); background: var(--blue); color: #fff; font-weight: 700; }
+  dl.kv { display: grid; grid-template-columns: minmax(9rem, 14rem) 1fr; gap: 0.25rem 1rem; margin: 0; font-size: 0.95rem; }
+  dl.kv dt { color: var(--soft); }
+  dl.kv dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  @media (max-width: 34rem) { dl.kv { grid-template-columns: 1fr; } dl.kv dd { margin-bottom: 0.4rem; } }
+  label.lbl { font-weight: 700; display: block; margin-bottom: 0.25rem; }
+  input[type=text], input[type=search], input[type=date], input[type=time], select, textarea {
+    font: inherit; color: var(--ink); background: var(--paper); border: 1.5px solid var(--line-s); border-radius: 4px; padding: 0.45rem 0.55rem; width: 100%; min-height: 2.5rem; }
+  textarea { min-height: 5.5rem; resize: vertical; }
+  .check { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.25rem 0; }
+  .check input { width: 1.2rem; height: 1.2rem; margin-top: 0.15rem; flex: none; accent-color: var(--blue); }
+  .tag { font-size: 0.75rem; font-weight: 700; padding: 0 0.4rem; border-radius: 4px; margin-left: 0.35rem; vertical-align: 0.1em; }
+  .tag.req { background: var(--err-bg); color: var(--err); }
+  .tag.sup { background: var(--surface); color: var(--soft); }
+  .row { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.75rem; }
+  .btn { font: inherit; font-weight: 700; min-height: 2.6rem; padding: 0.45rem 1rem; border-radius: 6px; border: 2px solid var(--blue); background: var(--blue); color: #fff; cursor: pointer; }
+  .btn:hover { background: var(--blue-d); border-color: var(--blue-d); }
+  .btn.alt { background: var(--paper); color: var(--blue); }
+  .btn.alt:hover { background: #eaf1fb; }
+  .btn.danger { border-color: var(--err); background: var(--paper); color: var(--err); }
+  .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .msg { border-radius: 6px; padding: 0.65rem 0.85rem; margin: 0.6rem 0; border: 1px solid; }
+  .msg.ok { background: var(--ok-bg); border-color: #a9d6bb; }
+  .msg.err { background: var(--err-bg); border-color: #efb7b3; }
+  .msg.warn { background: var(--warn-bg); border-color: #e9cf7c; }
+  .msg.info { background: #eaf1fb; border-color: #b4c8ea; }
+  .msg ul { margin: 0.25rem 0 0; padding-left: 1.2rem; }
+  .linkbox { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .linkbox input { flex: 1 1 18rem; font-size: 0.85rem; }
+  table.sessions { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  table.sessions th, table.sessions td { border: 1px solid var(--line); padding: 0.3rem; vertical-align: middle; }
+  table.sessions th { background: var(--surface); text-align: left; }
+  table.sessions input { min-height: 2.2rem; padding: 0.25rem 0.35rem; }
+  .scroll { overflow-x: auto; }
+  .note { border-left: 3px solid var(--line); padding: 0.25rem 0 0.25rem 0.75rem; margin: 0.6rem 0; }
+  .note .by { font-size: 0.82rem; color: var(--soft); }
+  .note p { margin: 0.15rem 0 0; white-space: pre-wrap; }
+  #toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); max-width: min(36rem, 92vw); z-index: 20; }
+  dialog { border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; width: min(40rem, 94vw); }
+  dialog::backdrop { background: rgba(23, 32, 46, 0.45); }
+  .grid { display: grid; gap: 0.75rem 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+  #print-area { display: none; }
+  @media print {
+    @page { size: A4; margin: 14mm; }
+    body.printing > *:not(#print-area) { display: none !important; }
+    body.printing #print-area { display: block; }
+  }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>IEO staff panel <span style="font-weight:400;color:var(--soft);font-size:0.95rem">SOP-OVPAA-IEO-01 Needs Assessment and Student Profiling</span></h1>
+  <span class="who">Signed in as <?= staffEmail ?></span>
+</header>
+
+<div class="layout">
+  <aside class="list-pane" aria-label="Cases">
+    <div class="filters">
+      <label class="visually-hidden" for="q">Search cases</label>
+      <input type="search" id="q" placeholder="Search name, student no., or reference">
+      <label class="visually-hidden" for="stageFilter">Filter by stage</label>
+      <select id="stageFilter"><option value="">All open cases</option><option value="*">All cases, including closed</option></select>
+      <button class="btn alt" id="refresh" type="button">Refresh list</button>
+    </div>
+    <p id="count" class="visually-hidden" aria-live="polite"></p>
+    <ul class="cases" id="cases"><li class="empty" style="padding:1rem">Loading cases</li></ul>
+  </aside>
+  <main class="detail" id="detail" tabindex="-1">
+    <p class="empty">Choose a case from the list.</p>
+  </main>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<dialog id="f003Dialog" aria-labelledby="f003Title">
+  <form method="dialog" id="f003Form">
+    <h2 id="f003Title" style="font-size:1.2rem">Issue RTU-OVPAA-IEO-F003</h2>
+    <p style="margin-top:0">Referral Form for Required Documents. The student's details come from the referral slip.</p>
+    <div class="grid">
+      <div><span class="lbl">Addressed to the student's</span>
+        <label class="check"><input type="radio" name="to_profession" value="Physician" required> Physician</label>
+        <label class="check"><input type="radio" name="to_profession" value="Psychiatrist"> Psychiatrist</label>
+        <label class="check"><input type="radio" name="to_profession" value="Psychologist"> Psychologist</label></div>
+      <div><label class="lbl" for="d_to_name">Name (if known)</label><input type="text" id="d_to_name" name="to_name" maxlength="300">
+        <label class="lbl" for="d_inst" style="margin-top:0.5rem">Clinic / Hospital</label><input type="text" id="d_inst" name="to_institution" maxlength="300"></div>
+      <div style="grid-column:1/-1"><label class="lbl" for="d_addr">Address</label><input type="text" id="d_addr" name="to_address" maxlength="300"></div>
+    </div>
+    <fieldset style="border:0;padding:0;margin:0.75rem 0 0"><legend class="lbl">Documents requested</legend><div id="d_docs"></div></fieldset>
+    <label class="lbl" for="d_remarks" style="margin-top:0.5rem">Remarks</label><textarea id="d_remarks" name="remarks" maxlength="4000"></textarea>
+    <div class="grid" style="margin-top:0.5rem">
+      <div><label class="lbl" for="d_by">Issued by (name)</label><input type="text" id="d_by" name="issued_by" maxlength="300" required></div>
+      <div><label class="lbl" for="d_desig">Designation</label><input type="text" id="d_desig" name="issued_designation" maxlength="300" value="Case Manager"></div>
+    </div>
+    <div id="f003Msg"></div>
+    <div class="row"><button class="btn" value="issue" id="f003Issue">Record and print F003</button><button class="btn alt" value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
+<div id="print-area"></div>
+
+<?!= include_('F003Sheet') ?>
+<script>
+(function () {
+  'use strict';
+  var SITE_URL = <?= siteUrl ?>;
+  var cfg = null, cases = [], current = null, view = null, freshLink = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var r = google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) { reject(e); });
+      r[fn].apply(r, args);
+    });
+  }
+  function toast(kind, text) {
+    $('toast').innerHTML = '<div class="msg ' + kind + '">' + esc(text) + '</div>';
+    clearTimeout(toast.t);
+    toast.t = setTimeout(function () { $('toast').innerHTML = ''; }, kind === 'err' ? 9000 : 4000);
+  }
+  function fail(e) { toast('err', (e && e.message || String(e)).replace(/^Error: /, '')); }
+  function busy(btn, on) { if (btn) { btn.disabled = on; } }
+
+  /* ---------- list ---------- */
+  function loadList() {
+    return call('listCases').then(function (list) { cases = list; renderList(); }).catch(fail);
+  }
+  function renderList() {
+    var q = $('q').value.trim().toLowerCase();
+    var st = $('stageFilter').value;
+    var shown = cases.filter(function (c) {
+      if (st === '' && c.stage === 'CLOSED') return false;
+      if (st && st !== '*' && c.stage !== st) return false;
+      if (!q) return true;
+      return [c.case_id, c.student_name, c.student_no, c.program].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+    $('count').textContent = shown.length + ' cases shown';
+    $('cases').innerHTML = shown.length ? shown.map(function (c) {
+      return '<li><button type="button" data-id="' + esc(c.case_id) + '"' + (current === c.case_id ? ' aria-current="true"' : '') + '>' +
+        '<span class="name">' + esc(c.student_name) + '</span>' +
+        '<span class="meta">' + esc(c.case_id) + ' &middot; ' + esc(cfg.stages[c.stage] || c.stage) + '</span>' +
+        '<span class="meta">' + esc(c.program) + (c.student_no ? ', ' + esc(c.student_no) : '') + '</span></button></li>';
+    }).join('') : '<li class="empty" style="padding:1rem">No cases match.</li>';
+  }
+
+  /* ---------- detail ---------- */
+  var STEPS = ['Start of process', 'Identify the risk and opportunity', 'Submission of referral slip', 'Submission of required documents',
+    'Needs assessment interview and student portfolio', 'Educational assistance decision', 'End of process'];
+  function stepState(c) {
+    var s = c.stage;
+    // number of the SOP step that is in progress (steps before it are done)
+    var idx = { RECEIVED: 4, DOCS_PENDING: 4, INTERVIEW: 5, PORTFOLIO_SUBMITTED: 6, WAIVER_PENDING: 6, ISP: 7, WAIVER_SIGNED: 7, CLOSED: 8 }[s];
+    if (!c.risk_opportunity_note && idx <= 4) idx = 2;
+    return idx;
+  }
+
+  function openCase(id) {
+    current = id; freshLink = null;
+    renderList();
+    $('detail').innerHTML = '<p class="empty">Loading ' + esc(id) + '</p>';
+    return call('getCase', id).then(function (v) { view = v; renderDetail(); $('detail').focus(); }).catch(fail);
+  }
+  function reload(msg) {
+    return Promise.all([call('getCase', current), call('listCases')]).then(function (r) {
+      view = r[0]; cases = r[1]; renderList(); renderDetail(); if (msg) toast('ok', msg);
+    }).catch(fail);
+  }
+
+  function kv(obj, fields) {
+    return '<dl class="kv">' + fields.map(function (f) {
+      var v = obj ? obj[f[0]] : '';
+      return v === '' || v == null ? '' : '<dt>' + esc(f[1]) + '</dt><dd>' + esc(v) + '</dd>';
+    }).join('') + '</dl>';
+  }
+
+  function renderDetail() {
+    var v = view, c = v.caseRecord, st = stepState(c), html = '';
+    var stageOrder = ['RECEIVED', 'DOCS_PENDING', 'INTERVIEW', 'PORTFOLIO_SUBMITTED', 'ISP', 'WAIVER_PENDING', 'WAIVER_SIGNED', 'CLOSED'];
+    var at = function (list) { return list.indexOf(c.stage) >= 0; };
+
+    html += '<h2>' + esc(c.student_name) + '</h2>';
+    html += '<p style="margin:0">' + esc(c.case_id) + ' &middot; <span class="badge">' + esc(cfg.stages[c.stage]) + '</span></p>';
+    html += '<ol class="stepper" aria-label="SOP stages">' + STEPS.map(function (s, i) {
+      var n = i + 1, cls = n < st ? 'done' : (n === st ? 'now' : '');
+      if (c.stage === 'CLOSED') cls = 'done';
+      return '<li class="' + cls + '"' + (cls === 'now' ? ' aria-current="step"' : '') + '>' + n + '. ' + esc(s) + '</li>';
+    }).join('') + '</ol>';
+
+    // Referral slip
+    var r = v.referral || {};
+    html += '<section class="card"><span class="step">Stage 3</span><h3>Referral Slip (RTU-OVPAA-IEO-F001)</h3>' +
+      kv(r, [['submitted_at', 'Received'], ['s_name', 'Name'], ['s_program', 'Program'], ['s_department', 'Department'], ['s_student_no', 'Student No.'],
+        ['s_birthday', 'Birthday'], ['s_age', 'Age'], ['s_sex', 'Sex'], ['reasons', 'Reason for referral'], ['reason_other', 'Other reason'],
+        ['r_source', 'Referred by'], ['r_source_other', 'Source (others)'], ['r_name', 'Referring person'], ['r_designation', 'Designation'],
+        ['r_department', 'Department'], ['r_contact', 'Contact no.'], ['r_email', 'Email'], ['observations', 'Other observations'], ['attest_name', 'Signed (typed name)']]) +
+      '</section>';
+
+    // Risk and opportunity
+    var riskNow = !c.risk_opportunity_note && c.stage !== 'CLOSED';
+    html += '<section class="card' + (riskNow ? ' current' : '') + '"><span class="step">Stage 2</span><h3>Identify the risk and opportunity</h3>' +
+      '<label class="lbl" for="risk">Risk and opportunity note</label>' +
+      '<textarea id="risk" maxlength="4000"' + (c.stage === 'CLOSED' ? ' disabled' : '') + '>' + esc(c.risk_opportunity_note) + '</textarea>' +
+      (c.stage === 'CLOSED' ? '' : '<div class="row"><button class="btn" id="saveRisk" type="button">Save note</button></div>') + '</section>';
+
+    // Documents
+    var docsEditable = at(['RECEIVED', 'DOCS_PENDING']);
+    var ev = v.evaluation;
+    html += '<section class="card' + (docsEditable && !riskNow ? ' current' : '') + '"><span class="step">Stage 4</span><h3>Submission of required documents</h3>';
+    html += '<p style="margin-top:0">Check each document the student has submitted. Nothing is uploaded; verify the original or copy in person.</p>';
+    html += '<fieldset style="border:0;padding:0;margin:0"><legend class="lbl">Case category (choose all that apply)</legend>' +
+      Object.keys(cfg.categories).map(function (k) {
+        return '<label class="check"><input type="checkbox" name="cat" value="' + k + '"' + (v.categories.indexOf(k) >= 0 ? ' checked' : '') + (docsEditable ? '' : ' disabled') + '> ' + esc(cfg.categories[k]) + '</label>';
+      }).join('') + '</fieldset>';
+    html += '<div id="docLists"></div><div id="docEval"></div>';
+    if (docsEditable) {
+      html += '<div class="row"><button class="btn alt" id="saveDocs" type="button">Save checklist</button>' +
+        '<button class="btn" id="toInterview" type="button">Documents complete: schedule interview</button>' +
+        '<button class="btn alt" id="markPending" type="button">Documents incomplete</button>' +
+        '<button class="btn alt" id="openF003" type="button">Issue F003</button></div>';
+    }
+    if (v.f003.length) {
+      html += '<p style="margin-bottom:0.25rem"><strong>F003 issued</strong></p><ul style="margin:0">' + v.f003.map(function (f, i) {
+        return '<li>' + esc(f.date_issued) + ' to ' + esc(f.to_profession) + (f.to_name ? ' ' + esc(f.to_name) : '') + ' (' + esc(f.f003_id) + ') ' +
+          '<button class="btn alt" style="min-height:2rem;padding:0.1rem 0.6rem" type="button" data-reprint="' + i + '">Print again</button></li>';
+      }).join('') + '</ul>';
+    }
+    html += '</section>';
+
+    // Interview and portfolio
+    var interviewOn = stageOrder.indexOf(c.stage) >= stageOrder.indexOf('INTERVIEW');
+    html += '<section class="card' + (at(['INTERVIEW']) ? ' current' : '') + '"><span class="step">Stage 5</span><h3>Needs assessment interview and student portfolio (RTU-OVPAA-IEO-F002)</h3>';
+    if (!interviewOn) {
+      html += '<p class="msg info">Opens when the required documents are complete.</p>';
+    } else {
+      if (c.stage === 'INTERVIEW') {
+        html += linkBlock('portfolio', c);
+      }
+      if (v.portfolio) {
+        var p = v.portfolio;
+        html += '<details' + (c.stage === 'PORTFOLIO_SUBMITTED' ? ' open' : '') + '><summary><strong>Student portfolio</strong>, submitted ' + esc(p.submitted_at) + '</summary>' +
+          kv(p, [['course', 'Course'], ['last_name', 'Last name'], ['first_name', 'First name'], ['middle_name', 'Middle name'], ['nickname', 'Nickname'],
+            ['present_address', 'Present address'], ['provincial_address', 'Provincial address'], ['age', 'Age'], ['sex', 'Sex'], ['civil_status', 'Civil status'],
+            ['religion', 'Religion'], ['nationality', 'Nationality'], ['telephone', 'Telephone no.'], ['mobile', 'Mobile no.'], ['email', 'Email'], ['pwd_id', 'PWD ID No.'],
+            ['ip_member', 'IP ethnic group member'], ['ip_groups', 'IP / ethnic group'], ['ip_other', 'IP (others)'],
+            ['emergency_name', 'Emergency contact'], ['emergency_relationship', 'Relationship'], ['emergency_address', 'Address'], ['emergency_contact', 'Contact no.'],
+            ['elem_school', 'Elementary'], ['elem_year', 'Year graduated'], ['jhs_school', 'Junior high school'], ['jhs_year', 'Year graduated'],
+            ['shs_school', 'Senior high school'], ['shs_track', 'Track'], ['shs_strand', 'Strand'], ['shs_year', 'Year graduated'],
+            ['disabilities', 'Disability classification'], ['disability_other', 'Disability (others)'], ['medications', 'Current medications'],
+            ['precautions', 'Precautionary measures'], ['signature_name', 'Signed (typed name)']]) +
+          '<p class="msg info" style="margin-bottom:0">Attach the student\'s 2x2 picture (blue background) to the printed portfolio.</p></details>';
+      } else if (c.stage !== 'INTERVIEW') {
+        html += '<p>No portfolio on file.</p>';
+      }
+      // Sessions (for official use only)
+      var sessByLabel = {};
+      v.sessions.forEach(function (s) { sessByLabel[s.session] = s; });
+      var canEditSessions = c.stage !== 'CLOSED';
+      html += '<h3 style="margin-top:1.25rem">For official use only: sessions</h3><div class="scroll"><table class="sessions"><thead><tr><th scope="col">Sessions</th><th scope="col">Date</th><th scope="col">Time Started</th><th scope="col">Time Ended</th><th scope="col">Attended by</th><th scope="col"><span class="visually-hidden">Save</span></th></tr></thead><tbody>' +
+        cfg.sessionLabels.map(function (lab, i) {
+          var s = sessByLabel[lab] || {};
+          var dis = canEditSessions ? '' : ' disabled';
+          return '<tr data-session="' + esc(lab) + '"><th scope="row">' + esc(lab) + '</th>' +
+            '<td><input type="date" aria-label="' + esc(lab) + ' date" data-f="date" value="' + esc(s.date) + '"' + dis + '></td>' +
+            '<td><input type="time" aria-label="' + esc(lab) + ' time started" data-f="time_started" value="' + esc(s.time_started) + '"' + dis + '></td>' +
+            '<td><input type="time" aria-label="' + esc(lab) + ' time ended" data-f="time_ended" value="' + esc(s.time_ended) + '"' + dis + '></td>' +
+            '<td><input type="text" aria-label="' + esc(lab) + ' attended by" data-f="attended_by" value="' + esc(s.attended_by) + '"' + dis + '></td>' +
+            '<td>' + (canEditSessions ? '<button class="btn alt" style="min-height:2.2rem;padding:0.2rem 0.6rem" type="button" data-save-session>Save</button>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    // Case notes are allowed at every stage
+    html += '<h3 style="margin-top:1.25rem">For official use only: case notes</h3>' +
+      '<label class="lbl" for="newNote">New case note</label><textarea id="newNote" maxlength="4000"></textarea>' +
+      '<div class="row"><button class="btn alt" id="addNote" type="button">Add case note</button></div>' +
+      (v.notes.length ? v.notes.map(function (n) { return '<div class="note"><span class="by">' + esc(n.written_at) + ', ' + esc(n.author) + '</span><p>' + esc(n.note) + '</p></div>'; }).join('') : '<p class="empty" style="padding:0.5rem 0">No case notes yet.</p>') +
+      '</section>';
+
+    // Decision
+    html += '<section class="card' + (at(['PORTFOLIO_SUBMITTED', 'WAIVER_PENDING']) ? ' current' : '') + '"><span class="step">Stage 6</span><h3>Do they require educational assistance?</h3>';
+    if (c.stage === 'PORTFOLIO_SUBMITTED') {
+      html += '<p style="margin-top:0">Record the result of the needs assessment.</p><div class="row">' +
+        '<button class="btn" id="decYes" type="button">Yes: proceed with Formulation of ISP (SOP-OVPAA-IEO-02)</button>' +
+        '<button class="btn alt" id="decNo" type="button">No educational assistance needed: unlock the waiver</button></div>';
+    } else if (c.decision) {
+      html += '<p style="margin-top:0"><span class="badge done">' + esc(c.decision) + '</span><br><span style="font-size:0.9rem;color:var(--soft)">' + esc(c.decision_at) + ', ' + esc(c.decision_by) + '</span></p>';
+      if (c.stage === 'WAIVER_PENDING') html += '<p>The student signs the Individualized Support Plan waiver from their link.</p>' + linkBlock('waiver', c);
+      if (v.waiver) html += '<p><strong>Individualized Support Plan waiver signed</strong></p>' + kv(v.waiver, [['signed_at', 'Signed'], ['waiver_name', 'Name'], ['ay_start', 'A.Y. from'], ['ay_end', 'A.Y. to'], ['semester', 'Semester'], ['signature_name', 'Signature (typed name)']]);
+    } else {
+      html += '<p class="msg info">Opens after the student portfolio is submitted.</p>';
+    }
+    html += '</section>';
+
+    // End
+    html += '<section class="card' + (at(['ISP', 'WAIVER_SIGNED']) ? ' current' : '') + '"><span class="step">Stage 7</span><h3>End of process</h3>';
+    if (c.stage === 'CLOSED') {
+      html += '<p style="margin:0"><span class="badge done">Closed ' + esc(c.closed_at) + '</span> ' + esc(c.close_reason) + '</p>';
+    } else {
+      var complete = at(['ISP', 'WAIVER_SIGNED']);
+      html += (complete ? '<p style="margin-top:0">The decision is recorded. Close the case to end the process.</p>' :
+        '<p style="margin-top:0">This case has not reached a decision. To close it early, give the reason.</p><label class="lbl" for="closeReason">Reason for closing</label><input type="text" id="closeReason" maxlength="1000" placeholder="For example: the student withdrew">') +
+        '<div class="row"><button class="btn ' + (complete ? '' : 'danger') + '" id="closeCase" type="button">' + (complete ? 'Close case' : 'Close case without a decision') + '</button></div>';
+    }
+    html += '</section>';
+
+    $('detail').innerHTML = html;
+    renderDocs();
+    bindDetail();
+  }
+
+  function linkBlock(purpose, c) {
+    var what = purpose === 'portfolio' ? 'Student Portfolio Form' : 'Individualized Support Plan waiver';
+    var out = '';
+    if (freshLink && freshLink.purpose === purpose) {
+      var mail = 'mailto:?subject=' + encodeURIComponent('RTU Inclusive Education Office: your ' + what) +
+        '&body=' + encodeURIComponent('Good day!\n\nPlease open this personal link to fill in your ' + what + ':\n' + freshLink.link +
+          '\n\nThe link is for you only and stays valid for ' + cfg.linkValidDays + ' days. Do not share it.\n\nRTU Inclusive Education Office');
+      out += '<div class="msg ok"><strong>Personal link for the ' + esc(what) + '.</strong> Give it only to the student. It is shown once; make a new link if it is lost.' +
+        '<div class="linkbox" style="margin-top:0.5rem"><label class="visually-hidden" for="theLink">Student link</label><input type="text" id="theLink" readonly value="' + esc(freshLink.link) + '">' +
+        '<button class="btn alt" type="button" id="copyLink">Copy</button><a class="btn alt" style="text-decoration:none;display:inline-flex;align-items:center" href="' + esc(mail) + '">Email</a></div></div>';
+    } else {
+      out += '<p class="msg info">' + (view.linkActive ? 'A link for the ' + esc(what) + ' was issued on ' + esc(c.link_issued_at) + '. For privacy it cannot be shown again.' : 'The link for the ' + esc(what) + ' has expired.') + '</p>';
+    }
+    out += '<div class="row"><button class="btn alt" type="button" id="reissue">Make a new link</button><span style="font-size:0.9rem;color:var(--soft)">The old link stops working.</span></div>';
+    return out;
+  }
+
+  function checkedCats() { return Array.prototype.map.call(document.querySelectorAll('input[name=cat]:checked'), function (e) { return e.value; }); }
+  function checkedDocs() { return Array.prototype.map.call(document.querySelectorAll('input[name=doc]:checked'), function (e) { return e.value; }); }
+
+  function evaluate(cats, have) {
+    var missing = [], f003 = false;
+    if (!cats.length) return { complete: false, missing: ['Select at least one case category'], f003Eligible: false };
+    cats.forEach(function (k) {
+      var def = cfg.documents[k], req = def.docs.filter(function (d) { return d.required; });
+      if (def.rule === 'any') { if (!req.some(function (d) { return have.indexOf(d.id) >= 0; })) missing.push(req.map(function (d) { return d.label; }).join(' or ')); }
+      else req.forEach(function (d) { if (have.indexOf(d.id) < 0) { missing.push(d.label); if (def.f003) f003 = true; } });
+    });
+    missing = missing.filter(function (m, i) { return missing.indexOf(m) === i; });
+    return { complete: !missing.length, missing: missing, f003Eligible: f003 };
+  }
+
+  function renderDocs() {
+    var c = view.caseRecord, editable = ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0;
+    var cats = editable ? checkedCats() : view.categories;
+    var have = $('docLists').querySelector('input') ? checkedDocs() : view.received;
+    var seen = {}, html = '';
+    cats.forEach(function (k) {
+      var def = cfg.documents[k];
+      html += '<fieldset style="border:1px solid var(--line);border-radius:6px;padding:0.5rem 0.85rem;margin:0.75rem 0 0"><legend class="lbl" style="padding:0 0.3rem">' + esc(cfg.categories[k]) +
+        (def.rule === 'any' ? ' <span style="font-weight:400;color:var(--soft)">(one of the required documents)</span>' : '') + '</legend>' +
+        def.docs.map(function (d) {
+          var dup = seen[d.id]; seen[d.id] = true;
+          if (dup) return '';
+          return '<label class="check"><input type="checkbox" name="doc" value="' + esc(d.id) + '"' + (have.indexOf(d.id) >= 0 ? ' checked' : '') + (editable ? '' : ' disabled') + '> <span>' + esc(d.label) +
+            '<span class="tag ' + (d.required ? 'req">Required' : 'sup">Supporting') + '</span></span></label>';
+        }).join('') + '</fieldset>';
+    });
+    $('docLists').innerHTML = html;
+    var ev = evaluate(cats, checkedDocs());
+    $('docEval').innerHTML = ev.complete
+      ? '<div class="msg ok"><strong>Required documents complete.</strong> The interview can be scheduled.</div>'
+      : '<div class="msg warn"><strong>The process may not push forward without the required documents.</strong> Missing:<ul>' + ev.missing.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>' +
+        (cats.length ? (ev.f003Eligible ? '<p style="margin:0.4rem 0 0">Give the student a Referral Form for Required Documents (F003) for their physician, psychiatrist, or psychologist.</p>'
+          : '<p style="margin:0.4rem 0 0">Ask the student to submit the documents.</p>') : '') + '</div>';
+    if ($('toInterview')) {
+      $('toInterview').disabled = !ev.complete || !view.caseRecord.risk_opportunity_note;
+      $('markPending').disabled = ev.complete || !view.caseRecord.risk_opportunity_note;
+      $('openF003').disabled = !ev.f003Eligible;
+      $('toInterview').title = !view.caseRecord.risk_opportunity_note ? 'Save the risk and opportunity note first' : (ev.complete ? '' : 'Required documents are incomplete');
+    }
+  }
+
+  function bindDetail() {
+    var c = view.caseRecord, id = c.case_id;
+    var on = function (elId, fn) { var el = $(elId); if (el) el.addEventListener('click', fn); };
+
+    on('saveRisk', function (e) { busy(e.target, true); call('saveRiskNote', id, $('risk').value).then(function () { return reload('Risk and opportunity note saved.'); }).catch(fail).then(function () { busy(e.target, false); }); });
+
+    document.querySelectorAll('input[name=cat]').forEach(function (el) { el.addEventListener('change', renderDocs); });
+    $('docLists').addEventListener('change', renderDocs);
+
+    function saveDocs() { return call('saveDocuments', id, checkedCats(), checkedDocs()); }
+    on('saveDocs', function (e) { busy(e.target, true); saveDocs().then(function () { return reload('Checklist saved.'); }).catch(fail).then(function () { busy(e.target, false); }); });
+    on('toInterview', function (e) {
+      busy(e.target, true);
+      saveDocs().then(function () { return call('proceedToInterview', id); })
+        .then(function (res) { freshLink = { purpose: 'portfolio', link: res.link }; return reload('Interview stage opened. Give the student the portfolio link.'); })
+        .catch(fail).then(function () { if ($('toInterview')) busy($('toInterview'), false); });
+    });
+    on('markPending', function (e) {
+      busy(e.target, true);
+      saveDocs().then(function () { return call('markDocumentsPending', id); }).then(function () { return reload('Marked as documents incomplete.'); }).catch(fail).then(function () { if ($('markPending')) busy($('markPending'), false); });
+    });
+    on('openF003', function () { saveDocs().then(openF003Dialog).catch(fail); });
+    document.querySelectorAll('[data-reprint]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var f = Object.assign({}, view.f003[+b.getAttribute('data-reprint')]);
+        f.docs_requested = String(f.docs_requested || '').split(';').map(function (s) { return s.trim(); });
+        printF003(f);
+      });
+    });
+
+    on('reissue', function (e) {
+      if (!confirm('Make a new link? The link the student has now will stop working.')) return;
+      busy(e.target, true);
+      call('reissueLink', id).then(function (res) { freshLink = { purpose: res.purpose, link: res.link }; return reload('New link made.'); }).catch(fail).then(function () { if ($('reissue')) busy($('reissue'), false); });
+    });
+    on('copyLink', function () {
+      var i = $('theLink'); i.select();
+      (navigator.clipboard ? navigator.clipboard.writeText(i.value) : Promise.reject()).then(function () { toast('ok', 'Link copied.'); }).catch(function () { document.execCommand('copy'); toast('ok', 'Link copied.'); });
+    });
+
+    document.querySelectorAll('[data-save-session]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var tr = b.closest('tr'), s = { session: tr.getAttribute('data-session') };
+        tr.querySelectorAll('[data-f]').forEach(function (i) { s[i.getAttribute('data-f')] = i.value.trim(); });
+        busy(b, true);
+        call('saveSession', id, s).then(function () { toast('ok', s.session + ' saved.'); }).catch(fail).then(function () { busy(b, false); });
+      });
+    });
+
+    on('addNote', function (e) {
+      var t = $('newNote').value.trim();
+      if (!t) { toast('err', 'Write the case note first.'); return; }
+      busy(e.target, true);
+      call('addCaseNote', id, t).then(function () { return reload('Case note added.'); }).catch(fail).then(function () { if ($('addNote')) busy($('addNote'), false); });
+    });
+
+    on('decYes', function (e) {
+      if (!confirm('Record that the student requires educational assistance and proceed with the Formulation of ISP (SOP-OVPAA-IEO-02)?')) return;
+      busy(e.target, true);
+      call('recordDecision', id, true).then(function () { return reload('Decision recorded: proceed with ISP.'); }).catch(fail);
+    });
+    on('decNo', function (e) {
+      if (!confirm('Record that no educational assistance is needed? This unlocks the waiver section of the student portfolio.')) return;
+      busy(e.target, true);
+      call('recordDecision', id, false).then(function (res) { freshLink = { purpose: 'waiver', link: res.link }; return reload('Waiver unlocked. Give the student the waiver link.'); }).catch(fail);
+    });
+
+    on('closeCase', function (e) {
+      var reason = $('closeReason') ? $('closeReason').value.trim() : '';
+      if ($('closeReason') && !reason) { toast('err', 'Give the reason for closing this case.'); $('closeReason').focus(); return; }
+      if (!confirm('Close case ' + id + '? This ends the process for this case.')) return;
+      busy(e.target, true);
+      call('closeCase', id, reason).then(function () { return reload('Case closed.'); }).catch(fail);
+    });
+  }
+
+  /* ---------- F003 ---------- */
+  function openF003Dialog() {
+    var form = $('f003Form');
+    form.reset();
+    $('f003Msg').innerHTML = '';
+    $('d_docs').innerHTML = cfg.f003Docs.map(function (d, i) {
+      return '<label class="check"><input type="checkbox" name="docs_requested" value="' + esc(d) + '"' + (i === 0 ? ' checked disabled' : '') + '> ' + esc(d) + '</label>';
+    }).join('');
+    $('f003Dialog').showModal();
+  }
+  $('f003Form').addEventListener('submit', function (ev) {
+    if (ev.submitter && ev.submitter.value === 'cancel') return;
+    ev.preventDefault();
+    var form = $('f003Form');
+    var prof = form.querySelector('[name=to_profession]:checked');
+    if (!prof) { $('f003Msg').innerHTML = '<div class="msg err">Choose physician, psychiatrist, or psychologist.</div>'; return; }
+    if (!$('d_by').value.trim()) { $('f003Msg').innerHTML = '<div class="msg err">Enter the name of the staff issuing the form.</div>'; $('d_by').focus(); return; }
+    var data = {
+      to_profession: prof.value, to_name: $('d_to_name').value, to_institution: $('d_inst').value, to_address: $('d_addr').value,
+      remarks: $('d_remarks').value, issued_by: $('d_by').value, issued_designation: $('d_desig').value,
+      docs_requested: Array.prototype.map.call(form.querySelectorAll('[name=docs_requested]:checked'), function (e) { return e.value; })
+    };
+    busy($('f003Issue'), true);
+    call('issueF003', current, data).then(function (rec) {
+      $('f003Dialog').close();
+      printF003(rec);
+      return reload('F003 recorded.');
+    }).catch(function (e) { $('f003Msg').innerHTML = '<div class="msg err">' + esc((e && e.message || String(e)).replace(/^Error: /, '')) + '</div>'; })
+      .then(function () { busy($('f003Issue'), false); });
+  });
+
+  function printF003(rec) {
+    $('print-area').innerHTML = window.IEOF003Sheet(rec, { bannerSrc: SITE_URL ? SITE_URL.replace(/\/?$/, '/') + 'assets/img/ieo-banner.png' : '', allDocs: cfg.f003Docs });
+    document.body.classList.add('printing');
+    var img = $('print-area').querySelector('img');
+    var go = function () { window.print(); setTimeout(function () { document.body.classList.remove('printing'); }, 500); };
+    if (img && !img.complete) { img.onload = go; img.onerror = go; } else { go(); }
+  }
+
+  /* ---------- start ---------- */
+  $('q').addEventListener('input', renderList);
+  $('stageFilter').addEventListener('change', renderList);
+  $('refresh').addEventListener('click', loadList);
+  $('cases').addEventListener('click', function (e) { var b = e.target.closest('button[data-id]'); if (b) openCase(b.getAttribute('data-id')); });
+
+  call('getConfig').then(function (c) {
+    cfg = c;
+    Object.keys(cfg.stages).forEach(function (k) {
+      var o = document.createElement('option'); o.value = k; o.textContent = cfg.stages[k]; $('stageFilter').appendChild(o);
+    });
+    return loadList();
+  }).catch(fail);
+})();
+</script>
+</body>
+</html>

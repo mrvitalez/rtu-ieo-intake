@@ -1,0 +1,132 @@
+/*
+ * Minimal in-memory stand-ins for the Google Apps Script services this project uses,
+ * so the real .gs files can be exercised under Node. Test-only; never deployed.
+ */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const crypto = require('crypto');
+
+function makeWorld() {
+  const files = {}; // spreadsheet id -> spreadsheet
+  let nextId = 1;
+
+  class Range {
+    constructor(sheet, r, c, nr, nc) { Object.assign(this, { sheet, r, c, nr: nr || 1, nc: nc || 1 }); }
+    getValues() {
+      const out = [];
+      for (let i = 0; i < this.nr; i++) {
+        const row = [];
+        for (let j = 0; j < this.nc; j++) {
+          const v = (this.sheet.data[this.r - 1 + i] || [])[this.c - 1 + j];
+          row.push(v === undefined ? '' : v);
+        }
+        out.push(row);
+      }
+      return out;
+    }
+    setValues(vals) { vals.forEach((row, i) => row.forEach((v, j) => this.sheet.set(this.r + i, this.c + j, v))); return this; }
+    setValue(v) { this.sheet.set(this.r, this.c, v); return this; }
+    setFontWeight() { return this; }
+    setNumberFormat(f) { this.sheet.format = f; return this; }
+  }
+
+  class Sheet {
+    constructor(name) { this.name = name; this.data = []; this.format = null; }
+    set(r, c, v) {
+      if (typeof v === 'string' && /^[=+\-@]/.test(v)) throw new Error('FORMULA INJECTION: unescaped cell value ' + JSON.stringify(v));
+      if (typeof v === 'string' && v[0] === "'") v = v.slice(1); // Sheets keeps the text, drops the apostrophe
+      while (this.data.length < r) this.data.push([]);
+      const row = this.data[r - 1];
+      while (row.length < c) row.push('');
+      row[c - 1] = v;
+    }
+    getName() { return this.name; }
+    getLastRow() { return this.data.length; }
+    getLastColumn() { return this.data.reduce((m, r) => Math.max(m, r.length), 0); }
+    getMaxRows() { return Math.max(1000, this.data.length); }
+    getMaxColumns() { return Math.max(26, this.getLastColumn()); }
+    getRange(r, c, nr, nc) { return new Range(this, r, c, nr, nc); }
+    getDataRange() { return new Range(this, 1, 1, this.getLastRow(), this.getLastColumn()); }
+    appendRow(row) { const r = this.data.length + 1; row.forEach((v, j) => this.set(r, j + 1, v)); }
+    setFrozenRows() { return this; }
+  }
+
+  class Spreadsheet {
+    constructor(name) { this.id = 'sheet' + (nextId++); this.name = name; this.sheets = [new Sheet('Sheet1')]; }
+    getId() { return this.id; }
+    getUrl() { return 'https://docs.google.com/spreadsheets/d/' + this.id; }
+    getSheetByName(n) { return this.sheets.find(s => s.name === n) || null; }
+    insertSheet(n) { const s = new Sheet(n); this.sheets.push(s); return s; }
+    getSheets() { return this.sheets.slice(); }
+    deleteSheet(s) { this.sheets = this.sheets.filter(x => x !== s); }
+    setSpreadsheetTimeZone() { }
+  }
+
+  const SpreadsheetApp = {
+    create(name) { const s = new Spreadsheet(name); files[s.id] = s; return s; },
+    openById(id) { if (!files[id]) throw new Error('No spreadsheet ' + id); return files[id]; }
+  };
+  return { SpreadsheetApp, files };
+}
+
+function fmt(date, tz, pattern) {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+    .formatToParts(date).reduce((o, x) => (o[x.type] = x.value, o), {});
+  return pattern.replace('yyyy', p.year).replace('MM', p.month).replace('dd', p.day).replace('HH', p.hour).replace('mm', p.minute).replace('ss', p.second);
+}
+
+/** Loads a project folder's .gs files into a fresh context bound to the shared world. */
+function loadProject(dir, world, opts) {
+  opts = opts || {};
+  const props = {};
+  const cache = {};
+  const user = { email: opts.email || '' };
+  const ctx = {
+    console: { log() { }, error() { }, info() { } },
+    Date, Math, JSON, Object, Array, String, Number, RegExp, Error, Promise,
+    SpreadsheetApp: world.SpreadsheetApp,
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); } }) },
+    CacheService: { getScriptCache: () => ({ get: k => (k in cache ? cache[k] : null), put: (k, v) => { cache[k] = v; } }) },
+    LockService: { getScriptLock: () => ({ waitLock() { }, releaseLock() { } }) },
+    Session: { getActiveUser: () => ({ getEmail: () => user.email }) },
+    Utilities: {
+      formatDate: fmt,
+      getUuid: () => crypto.randomUUID(),
+      DigestAlgorithm: { SHA_256: 'sha256' },
+      Charset: { UTF_8: 'utf8' },
+      computeDigest: (alg, s) => Array.from(crypto.createHash(alg).update(s, 'utf8').digest()).map(b => (b > 127 ? b - 256 : b))
+    },
+    ContentService: {
+      MimeType: { JSON: 'json' },
+      createTextOutput: s => ({ content: s, setMimeType() { return this; }, getContent() { return this.content; } })
+    },
+    HtmlService: {
+      XFrameOptionsMode: { DENY: 'DENY' },
+      createHtmlOutput: h => htmlOut(h),
+      createHtmlOutputFromFile: n => htmlOut(fs.readFileSync(path.join(dir, n + '.html'), 'utf8')),
+      createTemplateFromFile: n => {
+        const t = {
+          evaluate() {
+            let src = fs.readFileSync(path.join(dir, n + '.html'), 'utf8');
+            src = src.replace(/<\?!=\s*include_\('([^']+)'\)\s*\?>/g, (m, f) => fs.readFileSync(path.join(dir, f + '.html'), 'utf8'));
+            src = src.replace(/<\?=\s*siteUrl\s*\?>/g, JSON.stringify(t.siteUrl));
+            src = src.replace(/<\?=\s*staffEmail\s*\?>/g, String(t.staffEmail).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])));
+            if (/<\?/.test(src)) throw new Error('Unrendered scriptlet in ' + n);
+            return htmlOut(src);
+          }
+        };
+        return t;
+      }
+    }
+  };
+  function htmlOut(h) {
+    return { html: h, setTitle() { return this; }, addMetaTag() { return this; }, setXFrameOptionsMode() { return this; }, getContent() { return this.html; } };
+  }
+  vm.createContext(ctx);
+  ['Schema.gs', 'Code.gs'].forEach(f => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: path.join(dir, f) }));
+  return { ctx, props, cache, user };
+}
+
+module.exports = { makeWorld, loadProject };

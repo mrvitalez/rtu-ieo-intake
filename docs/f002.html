@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Portfolio Form for Inclusive Education (F002) | RTU Inclusive Education Office</title>
+<meta name="description" content="RTU-OVPAA-IEO-F002 Student Portfolio Form for Inclusive Education. Opens from a link given by the Inclusive Education Office.">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="assets/img/rtu-seal.png">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the form</a>
+<header class="letterhead">
+  <div class="letterhead-inner">
+    <img src="assets/img/ieo-banner.png" width="1997" height="188" alt="Rizal Technological University, Inclusive Education Office. Boni Avenue, Cor. Sacrepante St., Brgy. Malamig, City of Mandaluyong, Philippines">
+  </div>
+  <div class="toolbar">
+    <nav aria-label="IEO forms">
+      <a href="index.html">Home</a>
+      <a href="f001.html">Referral slip</a>
+      <a href="requirements.html">Required documents</a>
+    </nav>
+    <div class="text-size" role="group" aria-label="Text size">
+      <span aria-hidden="true">Text size</span>
+      <button type="button" data-text-size="normal" aria-label="Normal text">A</button>
+      <button type="button" data-text-size="large" aria-label="Large text">A+</button>
+      <button type="button" data-text-size="larger" aria-label="Largest text">A++</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="doc">
+    <div class="form-code"><strong>RTU-OVPAA-IEO-F002</strong><span>Control No.: assigned by the IEO</span></div>
+    <h1>STUDENT PORTFOLIO FORM<span class="sub">FOR INCLUSIVE EDUCATION</span></h1>
+
+    <!-- Shown while the link is checked, or when the form cannot open -->
+    <div id="gate" class="callout info" role="status" tabindex="-1">
+      <h2>Checking your link</h2>
+      <p>One moment.</p>
+    </div>
+
+    <form id="f002" data-ieo-form action="#" method="post" hidden>
+      <div data-error-anchor></div>
+      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
+      <p class="muted small">Fields marked <span class="req" aria-hidden="true">*</span><span class="hp">with an asterisk</span> are required. Your answers are sent only to the Inclusive Education Office.</p>
+
+      <section class="section" aria-labelledby="disclaimer-h">
+        <h2 class="section-title" id="disclaimer-h">DISCLAIMER</h2>
+        <div class="statement">
+          <p>The information provided is true and accurate to the best of your knowledge. You also agree that the information provided herewith was prepared on your own free will, freely and voluntarily without any inducement, assurance, or guarantee being made. You hereby attest to the completeness and accuracy of all the information you have given.</p>
+          <p>Further, you are also allowing the University to use and release the information for legitimate purposes. Likewise, you permit the University to release information only to authorized personnel for the above-stated purpose in accordance with the Data Privacy Policy of the University. You are aware that any act of dishonesty or falsification will lead to forfeiture of your application or dismissal from this University. The institution may also take further legal steps against fraudulent actions if the situation demands.</p>
+        </div>
+        <div class="field"><label class="choice agree"><input type="checkbox" id="disclaimer_ack" name="disclaimer_ack" required> <span>I have read and understood the disclaimer.</span></label></div>
+      </section>
+
+      <fieldset class="section">
+        <legend>COURSE:</legend>
+        <div class="field"><label for="course">Course <span class="req" aria-hidden="true">*</span></label>
+          <input type="text" id="course" name="course" required maxlength="300"></div>
+      </fieldset>
+
+      <fieldset class="section">
+        <legend>PERSONAL INFORMATION:</legend>
+        <div class="grid">
+          <div class="field"><label for="last_name">Last name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="last_name" name="last_name" required maxlength="300" autocomplete="family-name"></div>
+          <div class="field"><label for="first_name">First name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="first_name" name="first_name" required maxlength="300" autocomplete="given-name"></div>
+          <div class="field"><label for="middle_name">Middle name <span class="opt">(optional)</span></label>
+            <input type="text" id="middle_name" name="middle_name" maxlength="300" autocomplete="additional-name"></div>
+          <div class="field"><label for="nickname">Nickname <span class="opt">(optional)</span></label>
+            <input type="text" id="nickname" name="nickname" maxlength="300"></div>
+          <div class="field span-all"><label for="present_address">Present address <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="present_address" name="present_address" required maxlength="300" autocomplete="street-address"></div>
+          <div class="field span-all"><label for="provincial_address">Provincial address <span class="opt">(optional)</span></label>
+            <input type="text" id="provincial_address" name="provincial_address" maxlength="300"></div>
+          <div class="field"><label for="age">Age <span class="req" aria-hidden="true">*</span></label>
+            <input type="number" id="age" name="age" required min="10" max="99" inputmode="numeric"></div>
+          <div class="field" data-group data-label="Sex">
+            <span class="group-label" id="sex-label">Sex <span class="req" aria-hidden="true">*</span></span>
+            <div class="inline-choices" role="radiogroup" aria-labelledby="sex-label">
+              <label class="choice"><input type="radio" name="sex" id="sex_m" value="Male" required> Male</label>
+              <label class="choice"><input type="radio" name="sex" id="sex_f" value="Female"> Female</label>
+            </div></div>
+          <div class="field"><label for="civil_status">Civil status <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="civil_status" name="civil_status" required maxlength="60" list="civil-list">
+            <datalist id="civil-list"><option value="Single"><option value="Married"><option value="Widowed"><option value="Separated"></datalist></div>
+          <div class="field"><label for="religion">Religion <span class="opt">(optional)</span></label>
+            <input type="text" id="religion" name="religion" maxlength="120"></div>
+          <div class="field"><label for="nationality">Nationality <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="nationality" name="nationality" required maxlength="120" value="Filipino"></div>
+          <div class="field"><label for="telephone">Telephone no. <span class="opt">(optional)</span></label>
+            <input type="tel" id="telephone" name="telephone" maxlength="40" inputmode="tel"></div>
+          <div class="field"><label for="mobile">Mobile no. <span class="req" aria-hidden="true">*</span></label>
+            <input type="tel" id="mobile" name="mobile" required maxlength="40" inputmode="tel" autocomplete="tel"></div>
+          <div class="field"><label for="email">Email address <span class="req" aria-hidden="true">*</span></label>
+            <input type="email" id="email" name="email" required maxlength="300" autocomplete="email"></div>
+          <div class="field"><label for="pwd_id">PWD ID No. <span class="opt">(if any)</span></label>
+            <input type="text" id="pwd_id" name="pwd_id" maxlength="60"></div>
+        </div>
+
+        <div class="callout info" style="margin-top:1.25rem">
+          <p><strong>2x2 picture.</strong> The printed form says: “Attach your recent 2x2 picture with blue background. Use GLUE ONLY. Do not staple.”</p>
+          <p>Bring your recent 2x2 picture with blue background to your needs assessment interview. The IEO attaches it to your portfolio. Do not upload a photo here.</p>
+          <label class="choice agree"><input type="checkbox" id="photo_note_ack" name="photo_note_ack" required> <span>I will bring my 2x2 picture to the interview.</span></label>
+        </div>
+
+        <fieldset class="subgroup" data-group data-label="Belonging to any Indigenous People (IP) Ethnic Group?">
+          <legend>Belonging to any Indigenous People (IP) – Ethnic Group? <span class="req" aria-hidden="true">*</span></legend>
+          <div class="inline-choices">
+            <label class="choice"><input type="radio" name="ip_member" id="ip_yes" value="Yes" required> Yes</label>
+            <label class="choice"><input type="radio" name="ip_member" id="ip_no" value="No"> No</label>
+          </div>
+          <div data-show-if="ip_member=Yes" data-group data-label="Indigenous People (IP) or ethnic group" data-required-group="ip_groups">
+            <p class="group-label" style="margin-top:0.75rem">If yes, please check which Indigenous People (IP) or ethnic group you belong to. <span class="req" aria-hidden="true">*</span></p>
+            <div class="choices">
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_kalanguya" value="Kalanguya"> Kalanguya</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_bataks" value="Bataks"> Bataks</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_ivatan" value="Ivatan"> Ivatan</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_ati_negrito" value="Ati Negrito"> Ati Negrito</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_bagobo" value="Bagobo"> Bagobo</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_matigsalug" value="Matigsalug"> Matigsalug</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_muslim_maranaos" value="Muslim Maranaos"> Muslim Maranaos</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_isnag" value="Isnag"> Isnag</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_tagbanuas" value="Tagbanuas"> Tagbanuas</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_agusan_manobo" value="Agusan Manobo"> Agusan Manobo</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_tadyawan_mangyan" value="Tadyawan Mangyan"> Tadyawan Mangyan</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_dibabaon" value="Dibabaon"> Dibabaon</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_ata_manobo" value="Ata-Manobo"> Ata-Manobo</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_ayta" value="Ayta"> Ayta</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_mansaka" value="Mansaka"> Mansaka</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_ifugao" value="Ifugao"> Ifugao</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_ibaloi" value="Ibaloi"> Ibaloi</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_bugkalot" value="Bugkalot"> Bugkalot</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_sumadel_kalinga" value="Sumadel Kalinga"> Sumadel Kalinga</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_ilongot_engongot" value="Ilongot-Engongot"> Ilongot-Engongot</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_others" value="Others"> Others (Please specify)</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_higaonon" value="Higaonon"> Higaonon</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_pala_wans" value="Pala’wans"> Pala’wans</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_subanen" value="Subanen"> Subanen</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_busaos_kankana_ey" value="Busaos Kankana-ey"> Busaos Kankana-ey</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_tagabawa" value="Tagabawa"> Tagabawa</label>
+              <label class="choice"><input type="checkbox" name="ip_groups" id="ip_mandaya" value="Mandaya"> Mandaya</label>
+            </div>
+            <div class="field" data-show-if="ip_groups=Others" style="margin-top:0.5rem">
+              <label for="ip_other">Others (Please specify) <span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="ip_other" name="ip_other" required maxlength="300">
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="grid">
+          <div class="field"><label for="emergency_name">IN CASE OF EMERGENCY, PLEASE NOTIFY: <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="emergency_name" name="emergency_name" required maxlength="300"></div>
+          <div class="field"><label for="emergency_relationship">Relationship <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="emergency_relationship" name="emergency_relationship" required maxlength="120"></div>
+          <div class="field"><label for="emergency_address">Address <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="emergency_address" name="emergency_address" required maxlength="300"></div>
+          <div class="field"><label for="emergency_contact">Contact no. <span class="req" aria-hidden="true">*</span></label>
+            <input type="tel" id="emergency_contact" name="emergency_contact" required maxlength="40" inputmode="tel"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section teal">
+        <legend>ACADEMIC INFORMATION:</legend>
+        <div class="table-scroll">
+          <table class="plain academic">
+            <caption class="hp">Schools attended</caption>
+            <thead><tr><th scope="col">LEVEL</th><th scope="col">NAME OF SCHOOL</th><th scope="col">YEAR GRADUATED</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">ELEMENTARY:</th>
+                <td><div class="field"><label for="elem_school" class="cell-label">Name of school</label><input type="text" id="elem_school" name="elem_school" maxlength="300"></div></td>
+                <td><div class="field"><label for="elem_year" class="cell-label">Year graduated</label><input type="text" id="elem_year" name="elem_year" maxlength="4" inputmode="numeric" data-pattern="^(19|20)\d{2}$" data-pattern-message="Enter a four digit year." placeholder="YYYY"></div></td></tr>
+              <tr><th scope="row">JUNIOR HIGH SCHOOL:</th>
+                <td><div class="field"><label for="jhs_school" class="cell-label">Name of school</label><input type="text" id="jhs_school" name="jhs_school" maxlength="300"></div></td>
+                <td><div class="field"><label for="jhs_year" class="cell-label">Year graduated</label><input type="text" id="jhs_year" name="jhs_year" maxlength="4" inputmode="numeric" data-pattern="^(19|20)\d{2}$" data-pattern-message="Enter a four digit year." placeholder="YYYY"></div></td></tr>
+              <tr><th scope="row">SENIOR HIGH SCHOOL:</th>
+                <td><div class="field"><label for="shs_school" class="cell-label">Name of school</label><input type="text" id="shs_school" name="shs_school" maxlength="300"></div>
+                  <div class="grid" style="margin-top:0.5rem;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr))">
+                    <div class="field"><label for="shs_track">TRACK:</label><input type="text" id="shs_track" name="shs_track" maxlength="120"></div>
+                    <div class="field"><label for="shs_strand">STRAND:</label><input type="text" id="shs_strand" name="shs_strand" maxlength="120"></div>
+                  </div></td>
+                <td><div class="field"><label for="shs_year" class="cell-label">Year graduated</label><input type="text" id="shs_year" name="shs_year" maxlength="4" inputmode="numeric" data-pattern="^(19|20)\d{2}$" data-pattern-message="Enter a four digit year." placeholder="YYYY"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </fieldset>
+
+      <fieldset class="section violet">
+        <legend>DISABILITY CLASSIFICATION:</legend>
+        <p>PLEASE PUT A CHECK (/) MARK ON THE APPROPRIATE SPACE, IF APPLICABLE:</p>
+        <div data-group data-label="Disability classification">
+          <fieldset class="subgroup"><legend>SENSORY DISABILITY</legend><div class="choices wide">
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_visual_disability_low_vision_or_partial_" value="Visual Disability – Low vision or partial sight"> Visual Disability – Low vision or partial sight</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_visual_disability_blind_or_total_loss_of" value="Visual Disability – Blind or total loss of vision"> Visual Disability – Blind or total loss of vision</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_hearing_disability_hard_of_hearing" value="Hearing Disability – Hard of hearing"> Hearing Disability – Hard of hearing</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_hearing_disability_deaf_or_total_hearing" value="Hearing Disability – Deaf or total hearing loss"> Hearing Disability – Deaf or total hearing loss</label>
+          </div></fieldset>
+          <fieldset class="subgroup"><legend>SPEECH AND COMMUNICATION DISABILITY</legend><div class="choices wide">
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_difficulty_in_speaking_clearly_e_g_stutt" value="Difficulty in speaking clearly (e.g. stuttering, slurred speech)"> Difficulty in speaking clearly (e.g. stuttering, slurred speech)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_non_verbal_uses_sign_language_or_communi" value="Non-verbal (uses sign language or communication devices)"> Non-verbal (uses sign language or communication devices)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_diagnosed_speech_language_delay_or_disor" value="Diagnosed speech/language delay or disorder"> Diagnosed speech/language delay or disorder</label>
+          </div></fieldset>
+          <fieldset class="subgroup"><legend>PHYSICAL DISABILITY</legend><div class="choices wide">
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_physical_mobility_impairment_e_g_cerebra" value="Physical: Mobility Impairment (e.g. Cerebral Palsy, Amputee, Spinal Cord Injury)"> Mobility Impairment (e.g. Cerebral Palsy, Amputee, Spinal Cord Injury)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_muscoskeletal_disorder_e_g_scoliosis_clu" value="Muscoskeletal disorder (e.g. scoliosis, clubfoot)"> Muscoskeletal disorder (e.g. scoliosis, clubfoot)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_uses_mobility_aid_e_g_wheelchair_crutche" value="Uses mobility aid (e.g. wheelchair, crutches, prosthesis)"> Uses mobility aid (e.g. wheelchair, crutches, prosthesis)</label>
+          </div></fieldset>
+          <fieldset class="subgroup"><legend>NEUROLOGICAL DISABILITY</legend><div class="choices wide">
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_neurological_mobility_impairment_e_g_cer" value="Neurological: Mobility Impairment (e.g. Cerebral Palsy, Amputee, Spinal Cord Injury)"> Mobility Impairment (e.g. Cerebral Palsy, Amputee, Spinal Cord Injury)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_epilepsy_or_seizure_disorder" value="Epilepsy or seizure disorder"> Epilepsy or seizure disorder</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_traumatic_brain_injury" value="Traumatic Brain Injury"> Traumatic Brain Injury</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_neurodegenerative_condition_e_g_parkinso" value="Neurodegenerative condition (e.g. Parkinson’s disease, Alzheimer’s disease)"> Neurodegenerative condition (e.g. Parkinson’s disease, Alzheimer’s disease)</label>
+          </div></fieldset>
+          <fieldset class="subgroup"><legend>INTELLECTUAL AND LEARNING DISABILITY</legend><div class="choices wide">
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_intellectual_disability_e_g_global_devel" value="Intellectual Disability (e.g. Global Developmental Delay, Mild/Moderate/Severe ID)"> Intellectual Disability (e.g. Global Developmental Delay, Mild/Moderate/Severe ID)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_learning_disability_e_g_dyslexia_dyscalc" value="Learning Disability (e.g. Dyslexia, Dyscalculia, Dysgraphia)"> Learning Disability (e.g. Dyslexia, Dyscalculia, Dysgraphia)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_has_difficulty_with_memory_problem_solvi" value="Has difficulty with memory, problem-solving, or adaptive behavior"> Has difficulty with memory, problem-solving, or adaptive behavior</label>
+          </div></fieldset>
+          <fieldset class="subgroup"><legend>PSYCHOSOCIAL DISABILITY</legend><div class="choices wide">
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_autism_spectrum_disorder" value="Autism Spectrum Disorder"> Autism Spectrum Disorder</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_depression_anxiety_or_trauma_related_dis" value="Depression, anxiety, or trauma-related disorder (diagnosed)"> Depression, anxiety, or trauma-related disorder (diagnosed)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_bipolar_disorder_schizophrenia_or_other_" value="Bipolar disorder, schizophrenia, or other major mental health condition"> Bipolar disorder, schizophrenia, or other major mental health condition</label>
+          </div></fieldset>
+          <fieldset class="subgroup"><legend>CHRONIC ILLNESS WITH FUNCTIONAL LIMITATION</legend><div class="choices wide">
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_diabetes_with_complications_affecting_da" value="Diabetes (with complications affecting daily activities)"> Diabetes (with complications affecting daily activities)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_cancer_currently_undergoing_treatment_or" value="Cancer (currently undergoing treatment or with lasting impact)"> Cancer (currently undergoing treatment or with lasting impact)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_cardiovascular_condition_e_g_heart_disea" value="Cardiovascular condition (e.g. heart disease, affecting function)"> Cardiovascular condition (e.g. heart disease, affecting function)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_tuberculosis_chronic_or_with_long_term_e" value="Tuberculosis (chronic or with long-term effects)"> Tuberculosis (chronic or with long-term effects)</label>
+            <label class="choice"><input type="checkbox" name="disabilities" id="dis_others" value="Others"> Others (please specify):</label>
+            <div class="field" data-show-if="disabilities=Others" style="margin-left:1.9rem">
+              <label for="disability_other">Others (please specify): <span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="disability_other" name="disability_other" required maxlength="300">
+            </div>
+          </div></fieldset>
+        </div>
+        <div class="grid two">
+          <div class="field span-all"><label for="medications">CURRENT MEDICATIONS:</label>
+            <textarea id="medications" name="medications" maxlength="4000" rows="3"></textarea></div>
+          <div class="field span-all"><label for="precautions">PERTINENT PRECAUTIONARY MEASURES TO CONSIDER:</label>
+            <textarea id="precautions" name="precautions" maxlength="4000" rows="3"></textarea></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section">
+        <legend>DATA PRIVACY CONSENT</legend>
+        <div data-consent="consent"></div>
+        <div class="grid" style="margin-top:1rem">
+          <div class="field"><label for="signature_name">Signature over Printed Name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="signature_name" name="signature_name" required maxlength="300" aria-describedby="sig-hint">
+            <span class="hint" id="sig-hint">Type your full name. It serves as your signature.</span></div>
+          <div class="field"><label for="sig_datetime">Date and Time</label>
+            <input type="text" id="sig_datetime" readonly aria-describedby="sigdt-hint">
+            <span class="hint" id="sigdt-hint">Recorded automatically when you submit</span></div>
+        </div>
+      </fieldset>
+
+      <section class="section" aria-labelledby="waiver-h-locked">
+        <h2 class="section-title" id="waiver-h-locked">INDIVIDUALIZED SUPPORT PLAN WAIVER</h2>
+        <div class="locked">
+          <p><strong>This section is locked.</strong> It opens only if, after your needs assessment interview, the Inclusive Education Office records that you do not need educational assistance. The office will send you a link when it opens.</p>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="official-h">
+        <h2 class="section-title" id="official-h">[For official use only. Leave this section blank.]</h2>
+        <p class="muted">The sessions record (Intake, Sessions 1 to 10) and case notes are kept by IEO staff in the staff panel.</p>
+      </section>
+
+      <div class="actions">
+        <button type="submit" class="btn">Submit student portfolio</button>
+      </div>
+    </form>
+
+    <form id="waiver" data-ieo-form action="#" method="post" hidden>
+      <div data-error-anchor></div>
+      <div class="hp" aria-hidden="true"><label for="website2">Leave this empty</label><input type="text" id="website2" name="website" tabindex="-1" autocomplete="off"></div>
+      <section class="section violet" aria-labelledby="waiver-h">
+        <h2 class="section-title" id="waiver-h">INDIVIDUALIZED SUPPORT PLAN WAIVER</h2>
+        <div class="statement">
+          <p>This is to certify that I,
+            <label for="waiver_name" class="hp">Your full name</label>
+            <input type="text" id="waiver_name" name="waiver_name" required maxlength="300" style="display:inline-block;width:auto;min-width:min(18rem,100%)" placeholder="Your full name">,
+            have sought admission to Rizal Technological University, with full knowledge and understanding of its vision, mission, and objectives, and of its curriculum and academic standards.</p>
+          <p>I am aware that I am entitled to receive an individualized support plan to assist me in my academic life in the University. I understand that should I waive this support, I will not be receiving additional support and will be independent in all my University undertakings.</p>
+          <p>By signing this waiver, I take full responsibility and waive my right to an individualized support plan for</p>
+          <div class="grid">
+            <div class="field"><label for="ay_start">A.Y. (start year) <span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="ay_start" name="ay_start" required maxlength="4" inputmode="numeric" placeholder="YYYY" data-pattern="^20\d{2}$" data-pattern-message="Enter a four digit year."></div>
+            <div class="field"><label for="ay_end">A.Y. (end year) <span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="ay_end" name="ay_end" required maxlength="4" inputmode="numeric" placeholder="YYYY" data-pattern="^20\d{2}$" data-pattern-message="Enter a four digit year."></div>
+            <div class="field"><label for="semester">Semester <span class="req" aria-hidden="true">*</span></label>
+              <select id="semester" name="semester" required>
+                <option value="">Choose</option><option value="1st">1st semester</option><option value="2nd">2nd semester</option><option value="Summer">Summer</option>
+              </select></div>
+          </div>
+        </div>
+        <div class="grid" style="margin-top:1rem">
+          <div class="field"><label for="w_signature_name">Signature over printed name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="w_signature_name" name="signature_name" required maxlength="300" aria-describedby="wsig-hint">
+            <span class="hint" id="wsig-hint">Type your full name, the same as in the first line.</span></div>
+          <div class="field"><label for="w_datetime">Date</label>
+            <input type="text" id="w_datetime" readonly></div>
+        </div>
+        <div class="field" style="margin-top:0.75rem"><label class="choice agree"><input type="checkbox" id="w_consent" name="consent" required> <span>I have read and understood this waiver, and my personal data is processed under the Data Privacy Consent I gave in this form.</span></label></div>
+      </section>
+      <div class="actions"><button type="submit" class="btn">Sign the waiver</button></div>
+    </form>
+
+    <div id="done" hidden tabindex="-1">
+      <div class="callout success">
+        <h2 id="done-title">Student portfolio submitted</h2>
+        <p id="done-text">Thank you. The Inclusive Education Office has your portfolio and will continue your needs assessment.</p>
+        <p class="small">Reference number: <strong id="done-ref"></strong><br>Submitted <span id="done-time"></span></p>
+      </div>
+      <p class="muted small">For privacy, your answers are not shown again and this link cannot be used to view them.</p>
+    </div>
+  </div>
+</main>
+
+<footer class="site">
+  <img src="assets/img/ieo-contact.png" width="2000" height="188" alt="Contact the Inclusive Education Office: (02) 8534-8267 local 1202, inclusive education@rtu.edu.ph">
+  <p>Rizal Technological University, Inclusive Education Office. Formerly RTU-OVPASA-OSAAS-CASU-F008. Personal data is handled under Republic Act 10173, the Data Privacy Act of 2012.</p>
+</footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/f002.js"></script>
+</body>
+</html>

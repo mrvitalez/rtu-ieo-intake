@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referral Form for Required Documents (F003) | RTU Inclusive Education Office</title>
+<meta name="description" content="RTU-OVPAA-IEO-F003 Referral Form for Required Documents, addressed to the student's physician, psychiatrist, or psychologist.">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="assets/img/rtu-seal.png">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the form</a>
+<header class="letterhead">
+  <div class="letterhead-inner">
+    <img src="assets/img/ieo-banner.png" width="1997" height="188" alt="Rizal Technological University, Inclusive Education Office. Boni Avenue, Cor. Sacrepante St., Brgy. Malamig, City of Mandaluyong, Philippines">
+  </div>
+  <div class="toolbar">
+    <nav aria-label="IEO forms">
+      <a href="index.html">Home</a>
+      <a href="f001.html">Referral slip</a>
+      <a href="requirements.html">Required documents</a>
+    </nav>
+    <div class="text-size" role="group" aria-label="Text size">
+      <span aria-hidden="true">Text size</span>
+      <button type="button" data-text-size="normal" aria-label="Normal text">A</button>
+      <button type="button" data-text-size="large" aria-label="Large text">A+</button>
+      <button type="button" data-text-size="larger" aria-label="Largest text">A++</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="doc">
+    <div class="form-code"><strong>RTU-OVPAA-IEO-F003</strong><span>SOP-OVPAA-IEO-01 Needs Assessment and Student Profiling</span></div>
+    <h1>REFERRAL FORM FOR REQUIRED DOCUMENTS</h1>
+    <p class="lead">Issued by the Inclusive Education Office when a student with a neurodivergent condition or a physical or sensory impairment does not yet have a clinical diagnosis. The student brings the printed form to their physician, psychiatrist, or psychologist.</p>
+    <p class="muted small">IEO staff usually issue this from the staff panel, which fills in the student's details for you. Fields marked <span class="req" aria-hidden="true">*</span><span class="hp">with an asterisk</span> are required.</p>
+
+    <form id="f003" data-ieo-form action="#" method="post">
+      <div data-error-anchor></div>
+      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
+
+      <fieldset class="section">
+        <legend>ADDRESSED TO</legend>
+        <div class="grid">
+          <div class="field"><label for="date_issued">Date <span class="req" aria-hidden="true">*</span></label>
+            <input type="date" id="date_issued" name="date_issued" required></div>
+          <div class="field"><label for="to_name">Name of physician, psychiatrist, or psychologist <span class="opt">(if known)</span></label>
+            <input type="text" id="to_name" name="to_name" maxlength="300"></div>
+          <div class="field span-all" data-group data-label="Addressed to">
+            <span class="group-label" id="prof-label">Addressed to the student's <span class="req" aria-hidden="true">*</span></span>
+            <div class="inline-choices" role="radiogroup" aria-labelledby="prof-label">
+              <label class="choice"><input type="radio" name="to_profession" id="prof_physician" value="Physician" required> Physician</label>
+              <label class="choice"><input type="radio" name="to_profession" id="prof_psychiatrist" value="Psychiatrist"> Psychiatrist</label>
+              <label class="choice"><input type="radio" name="to_profession" id="prof_psychologist" value="Psychologist"> Psychologist</label>
+            </div></div>
+          <div class="field"><label for="to_institution">Clinic / Hospital <span class="opt">(optional)</span></label>
+            <input type="text" id="to_institution" name="to_institution" maxlength="300"></div>
+          <div class="field"><label for="to_address">Address <span class="opt">(optional)</span></label>
+            <input type="text" id="to_address" name="to_address" maxlength="300"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section teal">
+        <legend>REFERRED STUDENT</legend>
+        <div class="grid">
+          <div class="field span-all"><label for="s_name">Name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="s_name" name="s_name" required maxlength="300" autocomplete="off"></div>
+          <div class="field"><label for="s_program">Program <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="s_program" name="s_program" required maxlength="300"></div>
+          <div class="field"><label for="s_student_no">Student No. <span class="opt">(optional)</span></label>
+            <input type="text" id="s_student_no" name="s_student_no" maxlength="40"></div>
+          <div class="field"><label for="case_id">IEO case reference no. <span class="opt">(optional)</span></label>
+            <input type="text" id="case_id" name="case_id" maxlength="20" placeholder="IEO-2026-0001" data-pattern="^IEO-\d{4}-\d{4,}$" data-pattern-message="Use the format IEO-2026-0001, or leave it blank."></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section violet" data-group data-label="Documents requested" data-required-group="docs_requested">
+        <legend>DOCUMENTS REQUESTED</legend>
+        <div class="choices wide">
+          <label class="choice"><input type="checkbox" name="docs_requested" id="doc_dx" value="Clinical diagnosis" checked> Clinical diagnosis</label>
+          <label class="choice"><input type="checkbox" name="docs_requested" id="doc_assessment" value="Psychological, psychiatric, or developmental assessment report"> Psychological, psychiatric, or developmental assessment report</label>
+          <label class="choice"><input type="checkbox" name="docs_requested" id="doc_progress" value="Progress Reports from occupational therapists, physical therapists, speech and language therapists, and other multidisciplinary team providers"> Progress Reports from occupational therapists, physical therapists, speech and language therapists, and other multidisciplinary team providers</label>
+          <label class="choice"><input type="checkbox" name="docs_requested" id="doc_accommodations" value="Recommended school accommodations or precautionary measures"> Recommended school accommodations or precautionary measures</label>
+        </div>
+        <div class="field" style="margin-top:0.75rem"><label for="remarks">Remarks <span class="opt">(optional)</span></label>
+          <textarea id="remarks" name="remarks" maxlength="4000" rows="3"></textarea></div>
+      </fieldset>
+
+      <fieldset class="section">
+        <legend>ISSUED BY</legend>
+        <div class="grid">
+          <div class="field"><label for="issued_by">Name of IEO staff <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="issued_by" name="issued_by" required maxlength="300" autocomplete="name"></div>
+          <div class="field"><label for="issued_designation">Designation <span class="opt">(optional)</span></label>
+            <input type="text" id="issued_designation" name="issued_designation" maxlength="300" placeholder="Case Manager"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section">
+        <legend>DATA PRIVACY CONSENT</legend>
+        <div data-consent="consent">
+          <p><strong>About this form.</strong> Saving this form records that the referral was issued, so the Inclusive Education Office can follow up on the documents. The student signs the authorization on the printed form before seeing their doctor.</p>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn">Save to IEO records and print</button>
+        <button type="button" class="btn secondary" id="print-only">Print without saving</button>
+      </div>
+    </form>
+  </div>
+  <div class="print-sheet" id="sheet" aria-hidden="true"></div>
+</main>
+
+<footer class="site">
+  <img src="assets/img/ieo-contact.png" width="2000" height="188" alt="Contact the Inclusive Education Office: (02) 8534-8267 local 1202, inclusive education@rtu.edu.ph">
+  <p>Rizal Technological University, Inclusive Education Office. Personal data is handled under Republic Act 10173, the Data Privacy Act of 2012.</p>
+</footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/f003-sheet.js"></script>
+<script src="assets/js/f003.js"></script>
+</body>
+</html>

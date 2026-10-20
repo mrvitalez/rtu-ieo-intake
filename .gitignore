@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+# Never commit student data
+*.csv
+*.xlsx
+*.xls
+*.docx
+*.pdf

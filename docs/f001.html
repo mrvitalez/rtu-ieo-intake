@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referral Slip for Needs Assessment (F001) | RTU Inclusive Education Office</title>
+<meta name="description" content="RTU-OVPAA-IEO-F001 Referral Slip for Needs Assessment. Refer an RTU student to the Inclusive Education Office.">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="assets/img/rtu-seal.png">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the form</a>
+<header class="letterhead">
+  <div class="letterhead-inner">
+    <img src="assets/img/ieo-banner.png" width="1997" height="188" alt="Rizal Technological University, Inclusive Education Office. Boni Avenue, Cor. Sacrepante St., Brgy. Malamig, City of Mandaluyong, Philippines">
+  </div>
+  <div class="toolbar">
+    <nav aria-label="IEO forms">
+      <a href="index.html">Home</a>
+      <a href="f001.html" aria-current="page">Referral slip</a>
+      <a href="requirements.html">Required documents</a>
+    </nav>
+    <div class="text-size" role="group" aria-label="Text size">
+      <span aria-hidden="true">Text size</span>
+      <button type="button" data-text-size="normal" aria-label="Normal text">A</button>
+      <button type="button" data-text-size="large" aria-label="Large text">A+</button>
+      <button type="button" data-text-size="larger" aria-label="Largest text">A++</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="doc" id="form-doc">
+    <div class="form-code"><strong>RTU-OVPAA-IEO-F001</strong><span>SOP-OVPAA-IEO-01 Needs Assessment and Student Profiling</span></div>
+    <h1>REFERRAL SLIP FOR NEEDS ASSESSMENT</h1>
+    <p class="lead">Use this slip to refer an RTU student to the Inclusive Education Office for a needs assessment. Offices, professors, classmates, and students referring themselves can all use it.</p>
+    <p class="muted small">Fields marked <span class="req" aria-hidden="true">*</span><span class="hp">with an asterisk</span> are required. If you do not know an answer about the student, leave it blank.</p>
+
+    <form id="f001" data-ieo-form action="#" method="post">
+      <div data-error-anchor></div>
+      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
+
+      <fieldset class="section">
+        <legend>REFERRED STUDENT</legend>
+        <div class="grid">
+          <div class="field span-all"><label for="s_name">Name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="s_name" name="s_name" required maxlength="300" autocomplete="off" aria-describedby="s_name-hint">
+            <span class="hint" id="s_name-hint">Last name, first name, middle name</span></div>
+          <div class="field"><label for="s_program">Program <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="s_program" name="s_program" required maxlength="300" autocomplete="off"></div>
+          <div class="field"><label for="s_department">Department <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="s_department" name="s_department" required maxlength="300" autocomplete="off"></div>
+          <div class="field"><label for="s_student_no">Student No. <span class="opt">(optional)</span></label>
+            <input type="text" id="s_student_no" name="s_student_no" maxlength="40" autocomplete="off" inputmode="numeric"></div>
+          <div class="field"><label for="s_birthday">Birthday <span class="opt">(optional)</span></label>
+            <input type="date" id="s_birthday" name="s_birthday" min="1940-01-01"></div>
+          <div class="field"><label for="s_age">Age <span class="opt">(optional)</span></label>
+            <input type="number" id="s_age" name="s_age" min="10" max="99" inputmode="numeric" aria-describedby="s_age-hint">
+            <span class="hint" id="s_age-hint">Filled in from the birthday</span></div>
+          <div class="field" data-group data-label="Sex">
+            <span class="group-label" id="s_sex-label">Sex <span class="opt">(optional)</span></span>
+            <div class="inline-choices" role="radiogroup" aria-labelledby="s_sex-label">
+              <label class="choice"><input type="radio" name="s_sex" id="s_sex_m" value="Male"> Male</label>
+              <label class="choice"><input type="radio" name="s_sex" id="s_sex_f" value="Female"> Female</label>
+            </div></div>
+        </div>
+
+        <fieldset class="subgroup" style="margin-top:1.25rem" data-group data-label="Reason for Referral" data-required-group="reasons">
+          <legend>Reason for Referral: <span class="req" aria-hidden="true">*</span></legend>
+          <div class="choices wide">
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_academic" value="Academic Challenged"> Academic Challenged</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_behavioral" value="Behavioral Challenged"> Behavioral Challenged</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_mobility" value="Mobility/Sensory Challenged"> Mobility/Sensory Challenged</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_marginalized" value="Student from Marginalized Sector"> Student from Marginalized Sector</label>
+            <label class="choice"><input type="checkbox" name="reasons" id="reason_others" value="Others"> Others (please specify)</label>
+          </div>
+          <div class="field" data-show-if="reasons=Others" style="margin:0.25rem 0 0.5rem 1.9rem">
+            <label for="reason_other">Please specify <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="reason_other" name="reason_other" required maxlength="300">
+          </div>
+        </fieldset>
+      </fieldset>
+
+      <fieldset class="section teal">
+        <legend>REFERRING PERSON</legend>
+        <div class="grid">
+          <div class="field span-all"><label for="r_source">Referred by <span class="req" aria-hidden="true">*</span></label>
+            <select id="r_source" name="r_source" required aria-describedby="r_source-hint">
+              <option value="">Choose who is referring the student</option>
+              <option value="CAWO">CAWO (Counseling, Assessment, and Wellness Office)</option>
+              <option value="AO">AO (Admissions Office)</option>
+              <option value="UC">UC (University Clinic)</option>
+              <option value="Faculty">Faculty Member</option>
+              <option value="Student/Classmate">Student/Classmate</option>
+              <option value="Self">Self (I am the student being referred)</option>
+              <option value="Others">Others</option>
+            </select>
+            <span class="hint" id="r_source-hint">SOP-OVPAA-IEO-01 lists CAWO, AO, UC, faculty members, and students as referral sources.</span></div>
+          <div class="field span-all" data-show-if="r_source=Others"><label for="r_source_other">Please specify <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="r_source_other" name="r_source_other" required maxlength="300"></div>
+          <div class="field span-all" data-show-if="r_source=Self">
+            <div class="callout info" style="margin:0"><p>You are referring yourself. Your name below should be the same as the student name above.</p>
+            <button type="button" class="btn secondary" id="copy-self">Use the student name above</button></div></div>
+          <div class="field"><label for="r_name">Name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="r_name" name="r_name" required maxlength="300" autocomplete="name"></div>
+          <div class="field"><label for="r_contact">Contact no.</label>
+            <input type="tel" id="r_contact" name="r_contact" maxlength="40" autocomplete="tel" inputmode="tel" aria-describedby="r_contact-hint">
+            <span class="hint" id="r_contact-hint">Give a contact number, an email, or both.</span></div>
+          <div class="field"><label for="r_department">Department</label>
+            <input type="text" id="r_department" name="r_department" maxlength="300" autocomplete="organization"></div>
+          <div class="field"><label for="r_email">Email</label>
+            <input type="email" id="r_email" name="r_email" maxlength="300" autocomplete="email"></div>
+          <div class="field"><label for="r_designation">Designation</label>
+            <input type="text" id="r_designation" name="r_designation" maxlength="300" autocomplete="organization-title" aria-describedby="r_designation-hint">
+            <span class="hint" id="r_designation-hint">For example: Instructor, Office Head, Student</span></div>
+          <div class="field"><label for="client_datetime">Date &amp; Time</label>
+            <input type="text" id="client_datetime" name="client_datetime" readonly aria-describedby="dt-hint">
+            <span class="hint" id="dt-hint">Recorded automatically when you submit</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section violet">
+        <legend>OTHER OBSERVATIONS OF THE STUDENT:</legend>
+        <div class="field">
+          <label for="observations" class="hp">Other observations of the student</label>
+          <textarea id="observations" name="observations" maxlength="4000" aria-describedby="obs-hint"></textarea>
+          <span class="hint" id="obs-hint">Describe what you have noticed, in your own words. Optional.</span>
+        </div>
+      </fieldset>
+
+      <fieldset class="section">
+        <legend>DATA PRIVACY CONSENT</legend>
+        <div data-consent="consent">
+          <p><strong>About this referral.</strong> The details you give about the referred student are used by the Inclusive Education Office only to contact the student and carry out the needs assessment. The student will be asked for their own consent at the needs assessment interview.</p>
+        </div>
+      </fieldset>
+
+      <fieldset class="section teal">
+        <legend>Name of Referring Person &amp; Signature</legend>
+        <div class="field">
+          <label for="attest_name">Type your full name to sign this referral slip <span class="req" aria-hidden="true">*</span></label>
+          <input type="text" id="attest_name" name="attest_name" required maxlength="300" autocomplete="off" aria-describedby="attest-hint">
+          <span class="hint" id="attest-hint">Your typed name serves as your signature. It must match your name above. The date and time are recorded automatically.</span>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn">Submit referral slip</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="doc" id="done" hidden tabindex="-1">
+    <div class="form-code"><strong>RTU-OVPAA-IEO-F001</strong><span>Referral received</span></div>
+    <h1>Referral slip received</h1>
+    <p>Reference number</p>
+    <p class="ref-number" id="done-ref"></p>
+    <p>Received <span id="done-time"></span>. Keep the reference number if you need to follow up with the Inclusive Education Office.</p>
+    <h2>What happens next</h2>
+    <ol>
+      <li>The Inclusive Education Office reviews the referral and contacts the student.</li>
+      <li>The student submits the required documents for their case. See <a href="requirements.html">required documents</a>.</li>
+      <li>Once the documents are complete, the student is scheduled for the needs assessment interview and fills in the Student Portfolio Form.</li>
+    </ol>
+    <p class="muted small">For privacy, this page does not show the details you sent, and you will not be able to view the case later. Questions: call the Inclusive Education Office at (02) 8534-8267 local 1202.</p>
+    <div class="actions"><a class="btn secondary" href="f001.html">Submit another referral</a></div>
+  </div>
+</main>
+
+<footer class="site">
+  <img src="assets/img/ieo-contact.png" width="2000" height="188" alt="Contact the Inclusive Education Office: (02) 8534-8267 local 1202, inclusive education@rtu.edu.ph">
+  <p>Rizal Technological University, Inclusive Education Office. Personal data is handled under Republic Act 10173, the Data Privacy Act of 2012.</p>
+</footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/f001.js"></script>
+</body>
+</html>
