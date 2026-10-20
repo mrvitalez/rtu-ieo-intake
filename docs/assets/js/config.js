@@ -8,5 +8,5 @@
  * but nothing is sent anywhere.
  */
 window.IEO_CONFIG = {
-  ENDPOINT_URL: ''
+  ENDPOINT_URL: 'https://script.google.com/macros/s/AKfycbwVskzXmEvDXVYacPU_ZrNpxAiPyFd_UV-egSU8L5ZVPspsntEZ5lT618hEC8aejKLnMw/exec'
 };
