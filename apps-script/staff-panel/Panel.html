@@ -103,7 +103,7 @@
       <label class="visually-hidden" for="q">Search cases</label>
       <input type="search" id="q" placeholder="Search name, student no., or reference">
       <label class="visually-hidden" for="stageFilter">Filter by stage</label>
-      <select id="stageFilter"><option value="">All open cases</option><option value="upcoming">Upcoming interviews</option><option value="*">All cases, including closed</option></select>
+      <select id="stageFilter"><option value="">All open cases</option><option value="followup">Follow ups due</option><option value="upcoming">Upcoming interviews</option><option value="*">All cases, including closed</option></select>
       <button class="btn alt" id="refresh" type="button">Refresh list</button>
     </div>
     <p id="count" class="visually-hidden" aria-live="polite"></p>
@@ -208,6 +208,8 @@
     var nowText = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
     var shown = cases.filter(function (c) {
       if (st === 'upcoming') return c.stage !== 'CLOSED' && c.interview_start && c.interview_end >= nowText;
+      if (st === 'followup') return c.stage !== 'CLOSED' && (c.followup_status === 'NOT_STARTED' || !c.followup_status ||
+        (c.followup_status === 'IN_PROGRESS' && (!c.followup_due || c.followup_due <= nowText.slice(0, 10)))) && ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0;
       if (st === '' && c.stage === 'CLOSED') return false;
       if (st && st !== '*' && c.stage !== st) return false;
       if (!q) return true;
@@ -221,6 +223,8 @@
         '<span class="meta">' + esc(c.case_id) + ' &middot; ' + esc(cfg.stages[c.stage] || c.stage) + '</span>' +
         '<span class="meta">' + esc(c.program) + (c.student_no ? ', ' + esc(c.student_no) : '') + '</span>' +
         (c.interview_start && c.stage !== 'CLOSED' ? '<span class="meta"><strong>Interview ' + esc(niceWhen(c.interview_start, c.interview_end)) + '</strong></span>' : '') +
+        (c.stage !== 'CLOSED' && c.followup_status === 'IN_PROGRESS' && c.followup_due ? '<span class="meta">Follow up: waiting for reply until ' + esc(c.followup_due) + '</span>' : '') +
+        (c.stage === 'CLOSED' && c.followup_status === 'UNREACHABLE' ? '<span class="meta">Closed: no response</span>' : '') +
         '</button></li>';
     }).join('') : '<li class="empty" style="padding:1rem">No cases match.</li>';
   }
@@ -283,6 +287,9 @@
       '<label class="lbl" for="risk">Risk and opportunity note</label>' +
       '<textarea id="risk" maxlength="4000"' + (c.stage === 'CLOSED' ? ' disabled' : '') + '>' + esc(c.risk_opportunity_note) + '</textarea>' +
       (c.stage === 'CLOSED' ? '' : '<div class="row"><button class="btn" id="saveRisk" type="button">Save note</button></div>') + '</section>';
+
+    // Follow up
+    html += followUpCard(v, c);
 
     // Documents
     var docsEditable = at(['RECEIVED', 'DOCS_PENDING']);
@@ -382,6 +389,11 @@
     html += '<section class="card' + (at(['ISP', 'WAIVER_SIGNED']) ? ' current' : '') + '"><span class="step">Stage 7</span><h3>End of process</h3>';
     if (c.stage === 'CLOSED') {
       html += '<p style="margin:0"><span class="badge done">Closed ' + esc(c.closed_at) + '</span> ' + esc(c.close_reason) + '</p>';
+      if (c.followup_status === 'UNREACHABLE') {
+        html += '<label class="lbl" for="reopenNote" style="margin-top:0.75rem">Reopen this referral</label>' +
+          '<input type="text" id="reopenNote" maxlength="2000" placeholder="Why, for example: the student came to the IEO">' +
+          '<div class="row"><button class="btn alt" id="reopenCase" type="button">Reopen referral</button></div>';
+      }
     } else {
       var complete = at(['ISP', 'WAIVER_SIGNED']);
       html += (complete ? '<p style="margin-top:0">The decision is recorded. Close the case to end the process.</p>' :
@@ -394,6 +406,58 @@
     renderDocs();
     bindDetail();
   }
+
+  function followUpCard(v, c) {
+    var f = v.followUp;
+    var inScope = ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0 || f.attempts.length;
+    if (!inScope) return '';
+    var current = ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0 && f.status !== 'RESPONDED' && c.risk_opportunity_note;
+    var order = f.plan.map(function (p, i) { return (i + 1) + '. ' + esc(p.label); }).join(', then ');
+    var html = '<section class="card' + (current ? ' current' : '') + '"><span class="step">Stage 4</span><h3>Follow up: ask for the required documents</h3>';
+    html += '<p style="margin-top:0">Order: ' + order + '. Each attempt waits ' + f.waitDays + ' working days for a reply. ' +
+      (f.selfReferral ? 'This is a self referral, so the referrer step is skipped. ' : '') + 'No response after the last attempt closes the referral.</p>';
+    var statusText = { NOT_STARTED: 'Not started', IN_PROGRESS: 'Waiting for a reply', RESPONDED: 'Responded', UNREACHABLE: 'Closed: no response' }[f.status] || f.status;
+    html += '<p><span class="badge ' + (f.status === 'RESPONDED' ? 'done' : (f.status === 'UNREACHABLE' ? '' : 'wait')) + '">' + esc(statusText) + '</span></p>';
+    if (f.attempts.length) {
+      html += '<div class="scroll"><table class="sessions"><thead><tr><th scope="col">#</th><th scope="col">Contacted</th><th scope="col">How</th><th scope="col">When</th><th scope="col">Reply due</th><th scope="col">Result</th></tr></thead><tbody>' +
+        f.attempts.map(function (a) {
+          return '<tr><td>' + esc(a.attempt_no) + '</td><td>' + esc(cfgTarget(a.target)) + (a.contact_name ? '<br>' + esc(a.contact_name) : '') + (a.contact ? '<br><span style="color:var(--soft)">' + esc(a.contact) + '</span>' : '') + '</td>' +
+            '<td>' + esc(a.method) + '</td><td>' + esc(a.contacted_at) + '<br><span style="color:var(--soft)">' + esc(a.staff) + '</span></td><td>' + esc(a.due_date) + '</td>' +
+            '<td>' + (a.result ? esc(a.result) + '<br><span style="color:var(--soft)">' + esc(a.result_at) + '</span>' : 'Waiting') + (a.note ? '<br>' + esc(a.note) : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    if (f.pending) {
+      var canNo = f.today >= String(f.pending.due_date);
+      var last = Number(f.pending.attempt_no) >= f.total;
+      html += '<h3 style="margin-top:1rem">Result of attempt ' + esc(f.pending.attempt_no) + '</h3>' +
+        '<label class="lbl" for="fuResultNote">Note (optional)</label><input type="text" id="fuResultNote" maxlength="2000" placeholder="For example: replied by email, will bring documents Friday">' +
+        (last && !f.selfReferral ? '<label class="check" style="margin-top:0.5rem"><input type="checkbox" id="fuNotify" checked> Email the referrer that the referral was closed, if there is no response</label>' : '') +
+        '<div class="row"><button class="btn" id="fuResponded" type="button">Responded</button>' +
+        '<button class="btn ' + (last ? 'danger' : 'alt') + '" id="fuNoResponse" type="button"' + (canNo ? '' : ' disabled') + '>' + (last ? 'No response: close referral' : 'No response: go to next attempt') + '</button>' +
+        (canNo ? '' : '<span style="font-size:0.9rem;color:var(--soft)">Available from ' + esc(f.pending.due_date) + '</span>') + '</div>';
+    } else if (f.next && c.stage !== 'CLOSED') {
+      if (!c.risk_opportunity_note) {
+        html += '<p class="msg info">Save the risk and opportunity note first.</p>';
+      } else {
+        var d = f.draft || {};
+        html += '<h3 style="margin-top:1rem">Attempt ' + f.nextNo + ' of ' + f.total + ': ' + esc(f.next.label) + (f.next.name ? ', ' + esc(f.next.name) : '') + '</h3>';
+        if (f.next.target === 'dept_head' && !f.next.email) {
+          html += '<p class="msg warn" style="margin-top:0">The head\'s email is not in the Programs tab yet. Type it below; it is saved to the Programs tab when you send.' +
+            (f.next.inProgramList ? '' : ' This program is not in the Programs tab, so add it there for next time.') + '</p>';
+        }
+        html += '<div class="grid"><div><label class="lbl" for="fuMethod">How</label><select id="fuMethod">' +
+          cfg.contactMethods.map(function (m) { return '<option>' + esc(m) + '</option>'; }).join('') + '</select></div>' +
+          '<div><label class="lbl" for="fuTo" id="fuToLabel">Send to</label><input type="text" id="fuTo" maxlength="300" value="' + esc(d.to || f.next.phone || '') + '"></div></div>' +
+          '<div id="fuEmailParts"><label class="lbl" for="fuSubject" style="margin-top:0.5rem">Subject</label><input type="text" id="fuSubject" maxlength="300" value="' + esc(d.subject) + '">' +
+          '<label class="lbl" for="fuBody" style="margin-top:0.5rem">Message (you can edit it)</label><textarea id="fuBody" style="min-height:14rem">' + esc(d.body) + '</textarea></div>' +
+          '<label class="lbl" for="fuNote" style="margin-top:0.5rem">Note (optional)</label><input type="text" id="fuNote" maxlength="2000">' +
+          '<div id="fuRespondedWrap" hidden><label class="check" style="margin-top:0.5rem"><input type="checkbox" id="fuRespondedNow"> They responded during this contact</label></div>' +
+          '<div class="row"><button class="btn" id="fuSend" type="button">Send email</button></div>';
+      }
+    }
+    return html + '</section>';
+  }
+  function cfgTarget(t) { return { student: 'Referred student', referrer: 'Referrer', dept_head: 'Department head' }[t] || t; }
 
   function linkBlock(purpose, c) {
     var what = purpose === 'portfolio' ? 'Student Portfolio Form' : 'Individualized Support Plan waiver';
@@ -451,9 +515,11 @@
         (cats.length ? (ev.f003Eligible ? '<p style="margin:0.4rem 0 0">Give the student a Referral Form for Required Documents (F003) for their physician, psychiatrist, or psychologist.</p>'
           : '<p style="margin:0.4rem 0 0">Ask the student to submit the documents.</p>') : '') + '</div>';
     if ($('toInterview')) {
-      $('toInterview').disabled = !ev.complete || !view.caseRecord.risk_opportunity_note;
-      $('markPending').disabled = ev.complete || !view.caseRecord.risk_opportunity_note;
-      $('openF003').disabled = !ev.f003Eligible;
+      var responded = view.followUp.status === 'RESPONDED';
+      $('toInterview').disabled = !ev.complete || !view.caseRecord.risk_opportunity_note || !responded;
+      $('markPending').disabled = ev.complete || !view.caseRecord.risk_opportunity_note || !responded;
+      $('openF003').disabled = !ev.f003Eligible || !responded;
+      if (!responded) $('docEval').insertAdjacentHTML('afterbegin', '<div class="msg info">These steps open once the student (or someone for them) responds to the follow up above.</div>');
       $('toInterview').title = !view.caseRecord.risk_opportunity_note ? 'Save the risk and opportunity note first' : (ev.complete ? '' : 'Required documents are incomplete');
     }
   }
@@ -519,6 +585,45 @@
       if (!confirm('Record that no educational assistance is needed? This unlocks the waiver section of the student portfolio.')) return;
       busy(e.target, true);
       call('recordDecision', id, false).then(function (res) { freshLink = { purpose: 'waiver', link: res.link }; return reload('Waiver unlocked. Give the student the waiver link.'); }).catch(fail);
+    });
+
+    on('fuSend', function (e) {
+      var method = $('fuMethod').value;
+      var a = { method: method, to: $('fuTo').value.trim(), note: $('fuNote').value.trim() };
+      if (method === 'Email') { a.subject = $('fuSubject').value.trim(); a.body = $('fuBody').value; }
+      if (method !== 'Email' && $('fuRespondedNow').checked) a.result = 'Responded';
+      busy(e.target, true);
+      call('logContactAttempt', id, a).then(function (res) {
+        return reload(a.result === 'Responded' ? 'Response recorded. Continue with the required documents.' :
+          (res.emailSent ? 'Email sent. ' : 'Attempt logged. ') + 'Waiting for a reply until ' + res.due + '.');
+      }).catch(fail).then(function () { if ($('fuSend')) busy($('fuSend'), false); });
+    });
+    on('fuResponded', function (e) {
+      busy(e.target, true);
+      call('recordContactResult', id, 'Responded', $('fuResultNote').value.trim(), false)
+        .then(function () { return reload('Response recorded. Continue with the required documents.'); }).catch(fail);
+    });
+    on('fuNoResponse', function (e) {
+      var last = view.followUp.pending && Number(view.followUp.pending.attempt_no) >= view.followUp.total;
+      if (last && !confirm('This is the last attempt. Recording no response closes the referral. Continue?')) return;
+      busy(e.target, true);
+      call('recordContactResult', id, 'No response', $('fuResultNote').value.trim(), $('fuNotify') ? $('fuNotify').checked : false)
+        .then(function (res) { return reload(res.closed ? 'Referral closed: no response.' + (res.referrerNotified ? ' The referrer was notified.' : '') : 'No response recorded. Continue with the next attempt.'); })
+        .catch(fail).then(function () { if ($('fuNoResponse')) busy($('fuNoResponse'), false); });
+    });
+    var fuMethod = $('fuMethod');
+    if (fuMethod) fuMethod.addEventListener('change', function () {
+      var isEmail = fuMethod.value === 'Email';
+      $('fuEmailParts').hidden = !isEmail;
+      $('fuRespondedWrap').hidden = isEmail;
+      $('fuSend').textContent = isEmail ? 'Send email' : 'Log attempt';
+      $('fuToLabel').textContent = isEmail ? 'Send to' : 'Contacted (email or phone)';
+    });
+    on('reopenCase', function (e) {
+      var n = $('reopenNote').value.trim();
+      if (!n) { toast('err', 'Write why the referral is reopened.'); $('reopenNote').focus(); return; }
+      busy(e.target, true);
+      call('reopenCase', id, n).then(function () { return reload('Referral reopened.'); }).catch(fail);
     });
 
     on('closeCase', function (e) {

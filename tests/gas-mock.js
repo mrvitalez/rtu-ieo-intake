@@ -96,9 +96,18 @@ function makeWorld() {
 }
 
 function fmt(date, tz, pattern) {
-  const p = new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+  // Enough of Java SimpleDateFormat (what Apps Script uses) for this project.
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', weekday: 'long' })
     .formatToParts(date).reduce((o, x) => (o[x.type] = x.value, o), {});
-  return pattern.replace('yyyy', p.year).replace('MM', p.month).replace('dd', p.day).replace('HH', p.hour).replace('mm', p.minute).replace('ss', p.second);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const h = Number(p.hour);
+  const map = {
+    yyyy: p.year, MMMM: months[Number(p.month) - 1], MM: p.month, dd: p.day, d: String(Number(p.day)),
+    HH: p.hour, hh: String(h % 12 || 12).padStart(2, '0'), h: String(h % 12 || 12), mm: p.minute, ss: p.second,
+    EEEE: p.weekday, u: String(days.indexOf(p.weekday) + 1), a: h < 12 ? 'AM' : 'PM'
+  };
+  return pattern.replace(/yyyy|MMMM|MM|dd|d|HH|hh|h|mm|ss|EEEE|u|a/g, t => map[t]);
 }
 
 /** Loads a project folder's .gs files into a fresh context bound to the shared world. */

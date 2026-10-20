@@ -39,6 +39,7 @@ The SOP flowchart, step by step, and what the system does at each step.
 | 1 | Start of Process | | The referrer opens F001. | Referrer |
 | 2 | Identify the Risk and Opportunity | (risk note) | F001 captures the *Reason for Referral* and *Other Observations*. Staff write the risk and opportunity note in the panel; the next steps stay locked until it is saved. | Referrer, IEO Staff |
 | 3 | Submission of Referral Slip | `RECEIVED` | F001 is submitted. A case is created with a reference number (`IEO-2026-0001`). | Referrer |
+| 3a | Follow up (IEO step added after the SOP) | (follow up status) | Staff email the referred student to submit the required documents (ready template, editable). No reply after **3 working days**: contact the **referrer**. No reply again: contact the **department head** of the student's program (from the Programs tab). Self referrals skip the referrer. A reply at any attempt ends the follow up and opens step 4. No reply after the last attempt **closes the referral**; it can be reopened if the student gets in touch. Every attempt (email, phone, in person) is logged. | IEO Staff |
 | 4 | Submission of Required Document with Supporting Documents. *Do they have the required documents?* | `RECEIVED` / `DOCS_PENDING` | Staff choose the case category and tick the documents received. **Complete**: staff open the interview stage. **Incomplete**: IP and PDL students are asked to submit the documents; neurodivergent and physical or sensory cases are given F003. | IEO Staff, Referred Student |
 | 5 | Answering of Needs Assessment Interview and Student Portfolio Form | `INTERVIEW` → `PORTFOLIO_SUBMITTED` | Staff schedule the interview (date, time, in person or online). The student is emailed the schedule and a personal F002 link, and gets a Google Calendar invite. The student submits F002. Staff record the sessions (Intake, Sessions 1 to 10) and case notes. Interviews can be rescheduled. | Referred Student, IEO Staff (Case Manager) |
 | 6 | *Do they require educational assistance?* | `ISP` or `WAIVER_PENDING` → `WAIVER_SIGNED` | **Yes**: proceed with the Formulation of ISP (SOP-OVPAA-IEO-02). **No**: the waiver section of F002 unlocks and the student signs it from a new link. | IEO Staff, Referred Student |
@@ -75,6 +76,7 @@ A student can belong to more than one category; the requirements combine. *The p
 * **Staff panel, two locks.** It runs as the signed in user, so Google requires that the user has access to the sheet, *and* every action checks the account against the `STAFF_EMAILS` list. Students and other accounts see an "access denied" page with no data.
 * **Spreadsheet safety.** All cells are stored as text (leading zeros in phone and student numbers are kept) and anything that looks like a formula is stored as plain text.
 * **Abuse guards.** Option values are checked against the original forms, lengths are limited, a hidden field catches bots, and submissions are capped per minute.
+* **Programs list.** The `Programs` tab (college, program, department head, head email) starts from the IEO's list of courses offered. F001's Program dropdown and the department head follow up both use it. The public site receives only program and college names, never the heads' names or emails. Staff edit the tab directly; the head email is also saved there the first time staff email a head.
 * **Alert emails.** IEO staff get an email when a referral, portfolio, or waiver comes in. It carries only the reference number and the next step, never the student's name or answers.
 * **Audit log.** Every staff action, including opening a case, is logged with the staff email in the `AuditLog` tab.
 * No cookies, no analytics. The only browser storage is the text size choice.
@@ -116,6 +118,10 @@ About 20 minutes, done once. You do **not** need to create a Google Sheet yourse
 3. Test: submit an F001 at `https://mrvitalez.github.io/rtu-ieo-intake/f001.html`. You should get an alert email, a new row in the sheet, and the case in the staff panel. Close the test case with the reason "Test".
 
 Until `ENDPOINT_URL` is set the forms run in **preview mode**: they check answers but send nothing.
+
+### Keeping the Programs tab current
+
+Open the spreadsheet's **Programs** tab to add a program, change a department head, or fill in the heads' emails. The F001 dropdown picks up changes within 10 minutes. Head emails are blank at first; the panel asks for one the first time a case reaches the department head and saves it.
 
 ### Adding staff later
 
@@ -161,7 +167,7 @@ tests/                    Node tests with an in-memory Apps Script mock
 ## Testing
 
 ```
-node tests/run.js        # 62 checks: form options vs schema, validation, workflow order, access control
+node tests/run.js        # 72 checks: form options vs schema, validation, workflow order, access control
 node tests/e2e.js        # full SOP flow in a headless browser (needs Playwright)
 node tests/server.js     # local copy of everything at http://localhost:8765 (panel at /panel)
 ```

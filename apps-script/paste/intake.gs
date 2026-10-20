@@ -104,6 +104,60 @@ var IEO = {
   SEMESTERS: ['1st', '2nd', 'Summer'],
 
   INTERVIEW_MODES: ['In person', 'Online'],
+
+  // Follow up before Submission of Required Documents: student, then referrer, then department head.
+  // Self referrals skip the referrer. After the last "No response" the referral is closed.
+  FOLLOWUP_WAIT_WORKING_DAYS: 3,
+  CONTACT_METHODS: ['Email', 'Phone', 'In person', 'Other'],
+  FOLLOWUP_TARGETS: { student: 'Referred student', referrer: 'Referrer', dept_head: 'Department head' },
+  /**
+   * Starting list for the Programs tab (courses offered and their department heads, from the IEO).
+   * Used only to fill an empty Programs tab; after that staff edit the tab in the sheet.
+   * Head emails are not known yet: staff add them in the sheet or the first time they contact a head.
+   */
+  PROGRAM_SEED: [
+    ['CAS', 'Bachelor of Arts in Political Science', 'Asst. Prof. John D. Benedick Alim'],
+    ['CAS', 'Bachelor of Science in Astronomy', 'Instr. Jason B. Kalaw'],
+    ['CAS', 'Bachelor of Science in Biology', 'Assoc. Prof. Marita Geroy'],
+    ['CAS', 'Bachelor of Science in Psychology', 'Asst. Prof. Iris Cristelle D. Destura'],
+    ['CAS', 'Bachelor of Science in Statistics', 'Dr. Faustino E. Oguan'],
+    ['CBEA', 'Bachelor of Science in Accountancy', 'Instr. Noel G. Tubice'],
+    ['CBEA', 'Bachelor of Science in Entrepreneurship', 'Instr. Cyrille Anne R. Del Rio'],
+    ['CBEA', 'Bachelor of Science in Office Administration', 'Instr. Hanna V. Reambonanza'],
+    ['CBEA', 'Bachelor of Science in Business Administration Major in Financial Management', 'Instr. Michael Ivan P. Mediola'],
+    ['CBEA', 'Bachelor of Science in Business Administration Major in Human Resource Management', 'Instr. Carlie H. Momongan'],
+    ['CBEA', 'Bachelor of Science in Business Administration Major in Marketing Management', 'Instr. Abigail P. Mendoza'],
+    ['CBEA', 'Bachelor of Science in Business Administration Major in Operation Management', 'Instr. Louie A. Donato'],
+    ['CEng', 'Bachelor of Science in Civil Engineering', 'Engr. Aleli N. Rey'],
+    ['CEng', 'Bachelor of Science in Computer Engineering', 'Dr. Ma. Luisa M. Villanueva'],
+    ['CEng', 'Bachelor of Science in Electrical Engineering', 'Dr. Corleto R. Bravo'],
+    ['CEng', 'Bachelor of Science in Electronics Communication Engineering', 'Engr. Danfort Raven E. Inocencio'],
+    ['CEng', 'Bachelor of Science in Industrial Engineering', 'Dr. Helen L. Mendoza'],
+    ['CEng', 'Bachelor of Science in Instrumentation and Control Engineering', 'Engr. Darius I. Trance'],
+    ['CEng', 'Bachelor of Science in Mechanical Engineering', 'Engr. Gerry C. Cabrera'],
+    ['CEng', 'Bachelor of Engineering Technology Major in Mechatronics', 'Dr. Odilon B. Yangco'],
+    ['CED', 'Bachelor of Secondary Education Major in English', 'Instr. Monica Elijan R. Macaballug'],
+    ['CED', 'Bachelor of Secondary Education Major in Filipino', 'Instr. Aira F. Mitra'],
+    ['CED', 'Bachelor of Secondary Education Major in Mathematics', 'Asst. Prof. Belen B. Balbuena'],
+    ['CED', 'Bachelor of Secondary Education Major in Sciences', 'Assoc. Prof. Jerico S. Laquesta'],
+    ['CED', 'Bachelor of Secondary Education Major in Social Studies', 'Instr. Dexter O. Andal'],
+    ['CED', 'Bachelor of Technical-Vocational Teacher Education Major in Animation', 'Assoc. Prof. Romelyn Z. Callueng'],
+    ['CED', 'Bachelor of Technical-Vocational Teacher Education Major in Computer System Servicing', 'Assoc. Prof. Romelyn Z. Callueng'],
+    ['CED', 'Bachelor of Technical-Vocational Teacher Education Major in Electronics Technology', 'Assoc. Prof. Romelyn Z. Callueng'],
+    ['CED', 'Bachelor of Technical-Vocational Teacher Education Major in Garment, Fashion, and Design', 'Assoc. Prof. Romelyn Z. Callueng'],
+    ['CED', 'Bachelor of Technical-Vocational Teacher Education Major in Visual Graphics Design', 'Assoc. Prof. Romelyn Z. Callueng'],
+    ['CED', 'Bachelor of Technical-Vocational Teacher Education Major in Welding and Fabrication Technology', 'Assoc. Prof. Romelyn Z. Callueng'],
+    ['IA', 'Bachelor of Science in Architecture', 'Ar. Marirose V. Vocal'],
+    ['IHK', 'Bachelor of Physical Education', 'Instr. Christian Alex Mondido'],
+    ['ICS', 'Bachelor of Information and Technology', 'Dr. Lea S Nesperos'],
+    ['GS', 'Master of Arts in Literature and Language Instruction', 'Dr. Edna C. Aquino'],
+    ['GS', 'Master of Science in Engineering major in Instrumentation & Control Engineering', 'Dr. Wilfredo De Leon Timajo'],
+    ['GS', 'Master of Arts in Public Administration', 'Dr. Jeremiah V. Pacer'],
+    ['GS', 'Master in Business Administration', 'Dr. Rodolfo L. Ducut'],
+    ['GS', 'Doctor of Philosophy in Public Administration', 'Dr. Helen Mercedes C. Asturias']
+  ],
+
+  UNREACHABLE_REASON: 'No response after the follow up attempts (referred student, referrer, department head)',
   DEFAULT_VENUE: 'Inclusive Education Office, Rizal Technological University, Boni Avenue, Mandaluyong City',
 
   // Document checklist (SOP-OVPAA-IEO-01, Submission of Required Documents)
@@ -175,7 +229,8 @@ var IEO = {
       'decision', 'decision_at', 'decision_by', 'waiver_unlocked_at', 'waiver_signed_at',
       'closed_at', 'close_reason', 'updated_at', 'updated_by',
       'student_email', 'interview_start', 'interview_end', 'interview_mode', 'interview_venue',
-      'calendar_event_id', 'interview_scheduled_by', 'interview_scheduled_at'],
+      'calendar_event_id', 'interview_scheduled_by', 'interview_scheduled_at',
+      'followup_status', 'followup_due'],
     F001_Referrals: ['case_id', 'submitted_at', 's_name', 's_program', 's_department', 's_student_no',
       's_birthday', 's_age', 's_sex', 'reasons', 'reason_other', 'r_name', 'r_contact', 'r_department',
       'r_email', 'r_designation', 'r_source', 'r_source_other', 'observations', 'attest_name',
@@ -195,6 +250,9 @@ var IEO = {
     Sessions: ['case_id', 'session', 'date', 'time_started', 'time_ended', 'attended_by',
       'entered_by', 'entered_at'],
     CaseNotes: ['case_id', 'written_at', 'author', 'note'],
+    ContactAttempts: ['case_id', 'attempt_no', 'target', 'contact_name', 'contact', 'method', 'contacted_at',
+      'due_date', 'result', 'result_at', 'staff', 'note'],
+    Programs: ['college', 'program', 'head_name', 'head_email'],
     AuditLog: ['at', 'actor', 'action', 'case_id', 'detail']
   },
 
@@ -236,9 +294,54 @@ function ieoSpreadsheet_() {
 }
 
 function ieoSheet_(name) {
-  var sh = ieoSpreadsheet_().getSheetByName(name);
+  var ss = ieoSpreadsheet_();
+  var sh = ss.getSheetByName(name);
+  if (!sh && IEO.SHEETS[name]) {
+    // A tab added in a newer version of the code: create it so an existing spreadsheet keeps working.
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, IEO.SHEETS[name].length).setValues([IEO.SHEETS[name]]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, sh.getMaxRows(), IEO.SHEETS[name].length).setNumberFormat('@');
+  }
   if (!sh) throw new Error('Missing sheet tab: ' + name + '. Run setup() in the intake project.');
   return sh;
+}
+
+/** yyyy-MM-dd plus n working days (Monday to Friday; holidays are not counted out). */
+function ieoAddWorkingDays_(isoDate, n) {
+  var d = new Date(isoDate + 'T12:00:00+08:00');
+  var added = 0;
+  while (added < n) {
+    d = new Date(d.getTime() + 86400000);
+    var wd = Number(Utilities.formatDate(d, IEO.TIMEZONE, 'u')); // 1 = Monday ... 7 = Sunday
+    if (wd <= 5) added++;
+  }
+  return Utilities.formatDate(d, IEO.TIMEZONE, 'yyyy-MM-dd');
+}
+
+function ieoToday_() {
+  return Utilities.formatDate(new Date(), IEO.TIMEZONE, 'yyyy-MM-dd');
+}
+
+/**
+ * Programs (courses offered) with their college and department head, from the Programs tab.
+ * An empty tab is filled once from IEO.PROGRAM_SEED; staff keep it up to date in the sheet.
+ */
+function ieoPrograms_() {
+  var sh = ieoSheet_('Programs');
+  if (sh.getLastRow() < 2 && IEO.PROGRAM_SEED.length) {
+    var rows = IEO.PROGRAM_SEED.map(function (r) { return [r[0], r[1], r[2], '']; });
+    sh.getRange(2, 1, rows.length, 4).setValues(rows);
+  }
+  return ieoReadAll_('Programs').filter(function (p) { return String(p.program || '').trim(); }).map(function (p) {
+    return { _row: p._row, college: String(p.college || '').trim(), program: String(p.program).trim(),
+      head_name: String(p.head_name || '').trim(), head_email: String(p.head_email || '').trim() };
+  });
+}
+
+function ieoFindProgram_(program) {
+  var key = String(program || '').trim().toLowerCase();
+  return ieoPrograms_().filter(function (p) { return p.program.toLowerCase() === key; })[0] || null;
 }
 
 /** Append a record object to a tab, matching keys to the header row. */
@@ -350,6 +453,7 @@ function ieoEvaluateDocuments_(categories, received) {
  *   POST submit_f002   save a Student Portfolio (F002), only with a valid staff issued link
  *   POST submit_waiver save the ISP waiver, only after staff marked "No educational assistance needed"
  *   POST submit_f003   record a Referral Form for Required Documents (F003)
+ *   GET  programs      programs and colleges for the F001 dropdown (never the heads' names or emails)
  *   GET  status        tell a link holder whether their portfolio or waiver is open (no personal data)
  *   GET  ping          health check for the site configuration
  *
@@ -365,6 +469,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   try {
     if (p.action === 'status') return json_(linkStatus_(p.t));
+    if (p.action === 'programs') return json_(programList_());
     return json_({ ok: true, service: 'rtu-ieo-intake' });
   } catch (err) {
     return json_({ ok: false, error: 'The service is unavailable right now. Please try again later.' });
@@ -420,6 +525,14 @@ function submitF001_(d) {
     .oneOf('r_source', IEO.REFERRAL_SOURCES, true)
     .longText('observations', false).text('attest_name', true).text('client_datetime', false)
     .mustBeTrue('consent');
+  if (v.out.s_program === 'Other') {
+    v.text('s_program_other', true);
+    v.out.s_program = v.out.s_program_other;
+  } else if (v.out.s_program) {
+    var known = ieoFindProgram_(v.out.s_program);
+    if (known && known.college) v.out.s_department = known.college; // keep department consistent with the list
+  }
+  delete v.out.s_program_other;
   if (v.list('reasons').indexOf('Others') >= 0) v.text('reason_other', true); else v.out.reason_other = '';
   if (v.out.r_source === 'Others') v.text('r_source_other', true); else v.out.r_source_other = '';
   if (!v.out.r_contact && !v.out.r_email) v.fail('r_contact', 'Give a contact number or an email address so the IEO can reach you.');
@@ -440,13 +553,14 @@ function submitF001_(d) {
     student_name: o.s_name, student_no: o.s_student_no, program: o.s_program, department: o.s_department,
     student_email: o.s_email.toLowerCase(),
     referral_source: o.r_source === 'Others' ? 'Others: ' + o.r_source_other : o.r_source,
-    documents_complete: 'No', f003_issued_count: 0, updated_at: now, updated_by: 'F001 public form'
+    documents_complete: 'No', f003_issued_count: 0, followup_status: 'NOT_STARTED',
+    updated_at: now, updated_by: 'F001 public form'
   });
   ieoAudit_('public', 'F001_SUBMITTED', caseId, 'Referral slip received from source ' + o.r_source);
   notifyStaff_('New referral slip', caseId, [
     'A new Referral Slip for Needs Assessment (RTU-OVPAA-IEO-F001) was received.',
     'Referred by: ' + (o.r_source === 'Others' ? 'Others' : o.r_source),
-    'Next step: identify the risk and opportunity, then check the required documents.'
+    'Next step: identify the risk and opportunity, then email the referred student to submit the required documents (follow up attempt 1).'
   ]);
   return { ok: true, ref: caseId, submittedAt: now };
 }
@@ -550,6 +664,17 @@ function submitF003_(d) {
   }
   ieoAudit_('public', 'F003_RECORDED', v.out.case_id, id);
   return { ok: true, ref: id, submittedAt: now };
+}
+
+/* ---------------- program list (public) ---------------- */
+
+function programList_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('programs');
+  if (hit) return JSON.parse(hit);
+  var out = { ok: true, programs: ieoPrograms_().map(function (p) { return { college: p.college, program: p.program }; }) };
+  cache.put('programs', JSON.stringify(out), 600);
+  return out;
 }
 
 /* ---------------- link status (no personal data) ---------------- */
@@ -716,6 +841,7 @@ function setup() {
   var first = ss.getSheetByName('Sheet1');
   if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
   props.setProperty('SHEET_ID', ss.getId());
+  ieoPrograms_(); // fills an empty Programs tab from the IEO list
   if (!props.getProperty('ALERT_EMAILS')) {
     var me = Session.getEffectiveUser().getEmail();
     if (me) props.setProperty('ALERT_EMAILS', me);

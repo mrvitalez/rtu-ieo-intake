@@ -49,8 +49,13 @@ async function shot(page, name, full) {
   await step('F001: fill in and submit, get a reference number', async () => {
     await page.goto(BASE + 'f001.html');
     await page.fill('#s_name', 'Dela Cruz, Juan Santos');
-    await page.fill('#s_program', 'BS Electronics Engineering');
-    await page.fill('#s_department', 'CEIT');
+    await page.waitForSelector('select#s_program');
+    await page.selectOption('#s_program', 'Bachelor of Science in Electronics Communication Engineering');
+    assert.strictEqual(await page.inputValue('#s_department'), 'CEng', 'department from the program list');
+    await page.selectOption('#s_program', 'Other');
+    assert.ok(await page.locator('#s_program_other').isVisible(), 'Other shows a text box');
+    assert.strictEqual(await page.inputValue('#s_department'), '', 'department cleared for Other');
+    await page.selectOption('#s_program', 'Bachelor of Science in Electronics Communication Engineering');
     await page.fill('#s_student_no', '2026-100234');
     await page.fill('#s_email', 'juan@example.com');
     await page.fill('#s_birthday', '2007-03-14');
@@ -111,6 +116,18 @@ async function shot(page, name, full) {
     await panel.fill('#risk', 'Risk: falling behind in reading. Opportunity: early accommodations.');
     await panel.click('#saveRisk');
     await panel.waitForFunction(() => /Submission of required/.test(document.querySelector('[aria-current=step]').textContent));
+    // Follow up attempt 1: email the student, then record the reply
+    await panel.waitForSelector('#fuSend');
+    assert.strictEqual(await panel.inputValue('#fuTo'), 'juan@example.com');
+    assert.match(await panel.inputValue('#fuBody'), /required documents/);
+    await shot(panel, 'panel-followup', true);
+    await panel.click('#fuSend');
+    await panel.waitForSelector('#fuResponded');
+    assert.ok(await panel.isDisabled('#fuNoResponse'), 'no response waits 3 working days');
+    assert.ok(srv.world.mail.some(m => m.to === 'juan@example.com' && /required documents/.test(m.subject)), 'student emailed');
+    await panel.fill('#fuResultNote', 'Replied, will bring documents');
+    await panel.click('#fuResponded');
+    await panel.waitForFunction(() => /Responded/.test(document.getElementById('detail').textContent) && !document.getElementById('fuResponded'));
     await panel.check('input[name=cat][value=NEURODIVERGENT]');
     await panel.check('input[name=doc][value=pwd_id]');
     assert.ok(await panel.isDisabled('#toInterview'), 'interview blocked');

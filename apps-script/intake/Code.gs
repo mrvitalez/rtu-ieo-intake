@@ -9,6 +9,7 @@
  *   POST submit_f002   save a Student Portfolio (F002), only with a valid staff issued link
  *   POST submit_waiver save the ISP waiver, only after staff marked "No educational assistance needed"
  *   POST submit_f003   record a Referral Form for Required Documents (F003)
+ *   GET  programs      programs and colleges for the F001 dropdown (never the heads' names or emails)
  *   GET  status        tell a link holder whether their portfolio or waiver is open (no personal data)
  *   GET  ping          health check for the site configuration
  *
@@ -24,6 +25,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   try {
     if (p.action === 'status') return json_(linkStatus_(p.t));
+    if (p.action === 'programs') return json_(programList_());
     return json_({ ok: true, service: 'rtu-ieo-intake' });
   } catch (err) {
     return json_({ ok: false, error: 'The service is unavailable right now. Please try again later.' });
@@ -79,6 +81,14 @@ function submitF001_(d) {
     .oneOf('r_source', IEO.REFERRAL_SOURCES, true)
     .longText('observations', false).text('attest_name', true).text('client_datetime', false)
     .mustBeTrue('consent');
+  if (v.out.s_program === 'Other') {
+    v.text('s_program_other', true);
+    v.out.s_program = v.out.s_program_other;
+  } else if (v.out.s_program) {
+    var known = ieoFindProgram_(v.out.s_program);
+    if (known && known.college) v.out.s_department = known.college; // keep department consistent with the list
+  }
+  delete v.out.s_program_other;
   if (v.list('reasons').indexOf('Others') >= 0) v.text('reason_other', true); else v.out.reason_other = '';
   if (v.out.r_source === 'Others') v.text('r_source_other', true); else v.out.r_source_other = '';
   if (!v.out.r_contact && !v.out.r_email) v.fail('r_contact', 'Give a contact number or an email address so the IEO can reach you.');
@@ -99,13 +109,14 @@ function submitF001_(d) {
     student_name: o.s_name, student_no: o.s_student_no, program: o.s_program, department: o.s_department,
     student_email: o.s_email.toLowerCase(),
     referral_source: o.r_source === 'Others' ? 'Others: ' + o.r_source_other : o.r_source,
-    documents_complete: 'No', f003_issued_count: 0, updated_at: now, updated_by: 'F001 public form'
+    documents_complete: 'No', f003_issued_count: 0, followup_status: 'NOT_STARTED',
+    updated_at: now, updated_by: 'F001 public form'
   });
   ieoAudit_('public', 'F001_SUBMITTED', caseId, 'Referral slip received from source ' + o.r_source);
   notifyStaff_('New referral slip', caseId, [
     'A new Referral Slip for Needs Assessment (RTU-OVPAA-IEO-F001) was received.',
     'Referred by: ' + (o.r_source === 'Others' ? 'Others' : o.r_source),
-    'Next step: identify the risk and opportunity, then check the required documents.'
+    'Next step: identify the risk and opportunity, then email the referred student to submit the required documents (follow up attempt 1).'
   ]);
   return { ok: true, ref: caseId, submittedAt: now };
 }
@@ -209,6 +220,17 @@ function submitF003_(d) {
   }
   ieoAudit_('public', 'F003_RECORDED', v.out.case_id, id);
   return { ok: true, ref: id, submittedAt: now };
+}
+
+/* ---------------- program list (public) ---------------- */
+
+function programList_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('programs');
+  if (hit) return JSON.parse(hit);
+  var out = { ok: true, programs: ieoPrograms_().map(function (p) { return { college: p.college, program: p.program }; }) };
+  cache.put('programs', JSON.stringify(out), 600);
+  return out;
 }
 
 /* ---------------- link status (no personal data) ---------------- */
@@ -375,6 +397,7 @@ function setup() {
   var first = ss.getSheetByName('Sheet1');
   if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
   props.setProperty('SHEET_ID', ss.getId());
+  ieoPrograms_(); // fills an empty Programs tab from the IEO list
   if (!props.getProperty('ALERT_EMAILS')) {
     var me = Session.getEffectiveUser().getEmail();
     if (me) props.setProperty('ALERT_EMAILS', me);

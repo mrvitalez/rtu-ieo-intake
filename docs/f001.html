@@ -50,10 +50,13 @@
           <div class="field span-all"><label for="s_name">Name <span class="req" aria-hidden="true">*</span></label>
             <input type="text" id="s_name" name="s_name" required maxlength="300" autocomplete="off" aria-describedby="s_name-hint">
             <span class="hint" id="s_name-hint">Last name, first name, middle name</span></div>
-          <div class="field"><label for="s_program">Program <span class="req" aria-hidden="true">*</span></label>
+          <div class="field span-all" id="program-field"><label for="s_program">Program <span class="req" aria-hidden="true">*</span></label>
             <input type="text" id="s_program" name="s_program" required maxlength="300" autocomplete="off"></div>
+          <div class="field span-all" data-show-if="s_program=Other"><label for="s_program_other">Program (not listed) <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="s_program_other" name="s_program_other" required maxlength="300" autocomplete="off"></div>
           <div class="field"><label for="s_department">Department <span class="req" aria-hidden="true">*</span></label>
-            <input type="text" id="s_department" name="s_department" required maxlength="300" autocomplete="off"></div>
+            <input type="text" id="s_department" name="s_department" required maxlength="300" autocomplete="off" aria-describedby="s_department-hint">
+            <span class="hint" id="s_department-hint" hidden>Filled in from the program</span></div>
           <div class="field"><label for="s_student_no">Student No. <span class="opt">(optional)</span></label>
             <input type="text" id="s_student_no" name="s_student_no" maxlength="40" autocomplete="off" inputmode="numeric"></div>
           <div class="field"><label for="s_email">Email <span class="req" aria-hidden="true">*</span></label>

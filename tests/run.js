@@ -89,7 +89,11 @@ staff.props.SITE_URL = 'https://example.github.io/rtu-ieo-intake';
 const ss = world.SpreadsheetApp.openById(sheetId);
 const rows = tab => S.ieoReadAll_(tab);
 
+/** Follow up attempt 1 answered right away (the student walked in), so the documents step opens. */
+function responded(ref) { return S.logContactAttempt(ref, { method: 'In person', to: '', result: 'Responded', note: 'walked in' }); }
+let keepRate = false; // the flood guard test turns this on
 function post(action, data, token, extra) {
+  if (!keepRate) Object.keys(intake.cache).filter(k => k.indexOf('rate:') === 0).forEach(k => delete intake.cache[k]);
   const body = Object.assign({ action, data, token }, extra || {});
   return JSON.parse(I.doPost({ postData: { contents: JSON.stringify(body) } }).getContent());
 }
@@ -227,6 +231,36 @@ test('the interview cannot start before the risk and opportunity note', () => {
 test('save the risk and opportunity note', () => {
   assert.strictEqual(S.saveRiskNote(caseId, 'Risk: falling behind. Opportunity: early support.').ok, true);
 });
+test('the documents step stays locked until someone responds to the follow up', () => {
+  S.saveDocuments(caseId, ['NEURODIVERGENT'], ['clinical_dx']);
+  assert.throws(() => S.proceedToInterview(caseId, SCHED), /follow up/);
+  assert.throws(() => S.markDocumentsPending(caseId), /follow up/);
+});
+test('follow up attempt 1 emails the student a ready template and waits 3 working days', () => {
+  const v = S.getCase(caseId);
+  assert.strictEqual(v.followUp.status, 'NOT_STARTED');
+  same(v.followUp.plan.map(p => p.target), ['student', 'referrer', 'dept_head']);
+  const d = v.followUp.draft;
+  assert.strictEqual(d.to, 'juan.delacruz@rtu.edu.ph');
+  assert.ok(/required documents/.test(d.subject) && d.body.includes('Clinical diagnosis'));
+  assert.ok(d.body.startsWith('Dear Juan Santos Dela Cruz,'), 'name in reading order');
+  const before = world.mail.length;
+  const r = S.logContactAttempt(caseId, { method: 'Email', to: d.to, subject: d.subject, body: d.body });
+  assert.strictEqual(world.mail.length, before + 1);
+  assert.strictEqual(world.mail[world.mail.length - 1].from, STAFF);
+  assert.strictEqual(r.due, S.ieoAddWorkingDays_(S.ieoToday_(), 3));
+  assert.strictEqual(S.ieoFindCase_(caseId).followup_status, 'IN_PROGRESS');
+});
+test('"No response" is refused before the 3 working days are up', () => {
+  assert.throws(() => S.recordContactResult(caseId, 'No response', ''), /Wait until/);
+  assert.throws(() => S.logContactAttempt(caseId, { method: 'Phone' }), /still waiting/);
+});
+test('a response ends the follow up and opens the documents step', () => {
+  S.recordContactResult(caseId, 'Responded', 'Replied by email');
+  assert.strictEqual(S.ieoFindCase_(caseId).followup_status, 'RESPONDED');
+  assert.throws(() => S.logContactAttempt(caseId, { method: 'Phone' }), /already responded/);
+  S.saveDocuments(caseId, [], []);
+});
 test('the process may not push forward without the required documents', () => {
   S.saveDocuments(caseId, ['NEURODIVERGENT'], ['pwd_id']);
   assert.throws(() => S.proceedToInterview(caseId, SCHED), /may not push forward.*Clinical diagnosis/);
@@ -245,7 +279,7 @@ test('documents incomplete marks the case and allows F003 for neurodivergent cas
 });
 test('F003 is refused for IP or PDL cases (they submit the documents directly)', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'IP Student' }));
-  S.saveRiskNote(r.ref, 'note');
+  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], []);
   assert.throws(() => S.issueF003(r.ref, { to_profession: 'Physician' }), /F003 applies/);
 });
@@ -398,7 +432,7 @@ test('the case closes at End of Process', () => {
 });
 test('"Yes" goes to ISP (SOP-OVPAA-IEO-02) without a waiver', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'ISP Student' }));
-  S.saveRiskNote(r.ref, 'note');
+  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
   S.saveDocuments(r.ref, ['PDL'], ['bjmp_endorsement', 'cawo_clearance']);
   const t = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   assert.strictEqual(post('submit_f002', Object.assign({}, F002, { ip_member: 'No' }), t).ok, true);
@@ -410,7 +444,7 @@ test('"Yes" goes to ISP (SOP-OVPAA-IEO-02) without a waiver', () => {
 });
 test('reissuing a link invalidates the old one', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Reissue Student' }));
-  S.saveRiskNote(r.ref, 'note');
+  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], ['coc']);
   const t1 = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   const t2 = tokenOf(S.reissueLink(r.ref).link);
@@ -419,7 +453,7 @@ test('reissuing a link invalidates the old one', () => {
 });
 test('expired links are refused', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Old Link' }));
-  S.saveRiskNote(r.ref, 'note');
+  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], ['coc']);
   const t = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   const c = S.ieoFindCase_(r.ref);
@@ -430,7 +464,7 @@ test('expired links are refused', () => {
 test('closing early needs a reason, and cancels a future interview invite', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Withdrawn' }));
   assert.throws(() => S.closeCase(r.ref, ''), /reason/);
-  S.saveRiskNote(r.ref, 'note');
+  S.saveRiskNote(r.ref, 'note'); responded(r.ref);
   S.saveDocuments(r.ref, ['IP'], ['coc']);
   S.proceedToInterview(r.ref, Object.assign({}, SCHED, { student_email: 'w@example.com', send_invite: true }));
   const evId = S.ieoFindCase_(r.ref).calendar_event_id;
@@ -443,6 +477,79 @@ test('every staff action is in the audit log with the staff email', () => {
   ['F001_SUBMITTED', 'RISK_NOTE_SAVED', 'DOCUMENTS_UPDATED', 'F003_ISSUED', 'INTERVIEW_SCHEDULED', 'F002_SUBMITTED', 'DECISION_RECORDED', 'WAIVER_SIGNED', 'CASE_CLOSED', 'CASE_VIEWED']
     .forEach(a => assert.ok(log.some(l => l.action === a), a));
   assert.ok(log.filter(l => l.action === 'CASE_VIEWED').every(l => l.actor === STAFF));
+});
+
+console.log('Follow up');
+function expire(ref) {
+  const a = rows('ContactAttempts').filter(x => x.case_id === ref && !x.result)[0];
+  S.ieoUpdate_('ContactAttempts', a._row, { due_date: '2020-01-01' });
+}
+test('three failed attempts (student, referrer, department head) close the referral', () => {
+  const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Unreachable Student', s_program: 'Bachelor of Science in Psychology', s_department: 'whatever' }));
+  assert.strictEqual(S.ieoFindCase_(r.ref).department, 'CAS', 'department taken from the program list');
+  S.saveRiskNote(r.ref, 'note');
+  let v = S.getCase(r.ref).followUp;
+  S.logContactAttempt(r.ref, { method: 'Email', to: v.draft.to, subject: v.draft.subject, body: v.draft.body });
+  expire(r.ref);
+  assert.strictEqual(S.recordContactResult(r.ref, 'No response', '').closed, false);
+  v = S.getCase(r.ref).followUp;
+  assert.strictEqual(v.next.target, 'referrer');
+  assert.strictEqual(v.draft.to, 'mreyes@rtu.edu.ph');
+  assert.ok(v.draft.body.includes('Unreachable Student'));
+  S.logContactAttempt(r.ref, { method: 'Phone', to: '09171234567', note: 'no answer' });
+  expire(r.ref);
+  S.recordContactResult(r.ref, 'No response', '');
+  v = S.getCase(r.ref).followUp;
+  assert.strictEqual(v.next.target, 'dept_head');
+  assert.strictEqual(v.next.name, 'Asst. Prof. Iris Cristelle D. Destura');
+  assert.strictEqual(v.next.email, '', 'no head email yet');
+  S.logContactAttempt(r.ref, { method: 'Email', to: 'psych.head@rtu.edu.ph', subject: v.draft.subject, body: v.draft.body });
+  assert.strictEqual(S.ieoFindProgram_('Bachelor of Science in Psychology').head_email, 'psych.head@rtu.edu.ph', 'head email saved to Programs');
+  expire(r.ref);
+  const before = world.mail.length;
+  const res = S.recordContactResult(r.ref, 'No response', '', true);
+  assert.ok(res.closed && res.referrerNotified);
+  assert.ok(/referral closed/.test(world.mail[before].subject) && world.mail[before].to === 'mreyes@rtu.edu.ph');
+  const c = S.ieoFindCase_(r.ref);
+  assert.strictEqual(c.stage, 'CLOSED');
+  assert.strictEqual(c.followup_status, 'UNREACHABLE');
+  assert.match(c.close_reason, /No response/);
+  assert.throws(() => S.logContactAttempt(r.ref, { method: 'Phone' }), /before the interview/);
+  // the student turns up later
+  assert.throws(() => S.reopenCase(r.ref, ''), /why/);
+  S.reopenCase(r.ref, 'Student came to the IEO');
+  const c2 = S.ieoFindCase_(r.ref);
+  assert.strictEqual(c2.stage, 'RECEIVED');
+  assert.strictEqual(c2.followup_status, 'RESPONDED');
+});
+test('self referrals skip the referrer: two attempts, then closed', () => {
+  const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Self Ref', r_source: 'Self', r_name: 'Self Ref', attest_name: 'Self Ref', s_program: 'Bachelor of Science in Biology' }));
+  S.saveRiskNote(r.ref, 'note');
+  const v = S.getCase(r.ref).followUp;
+  same(v.plan.map(p => p.target), ['student', 'dept_head']);
+  S.logContactAttempt(r.ref, { method: 'Phone', to: '0917' });
+  expire(r.ref);
+  S.recordContactResult(r.ref, 'No response', '');
+  assert.strictEqual(S.getCase(r.ref).followUp.next.target, 'dept_head');
+  S.logContactAttempt(r.ref, { method: 'In person', to: 'CAS office' });
+  expire(r.ref);
+  assert.strictEqual(S.recordContactResult(r.ref, 'No response', '', true).referrerNotified, false, 'no referrer to notify');
+  assert.strictEqual(S.ieoFindCase_(r.ref).stage, 'CLOSED');
+});
+test('the Programs tab is filled from the IEO list and the public list shows no head names', () => {
+  const progs = rows('Programs');
+  assert.strictEqual(progs.length, IEO.PROGRAM_SEED.length);
+  const pub = JSON.parse(I.doGet({ parameter: { action: 'programs' } }).getContent());
+  assert.strictEqual(pub.programs.length, IEO.PROGRAM_SEED.length);
+  same(Object.keys(pub.programs[0]).sort(), ['college', 'program']);
+  assert.ok(!JSON.stringify(pub).includes('Prof.') && !JSON.stringify(pub).includes('@'));
+});
+test('"Other" program on F001 uses the typed program', () => {
+  const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Other Prog', s_program: 'Other', s_program_other: 'BS Nursing', s_department: 'CHS' }));
+  const c = S.ieoFindCase_(r.ref);
+  assert.strictEqual(c.program, 'BS Nursing');
+  assert.strictEqual(c.department, 'CHS');
+  assert.ok(post('submit_f001', Object.assign({}, F001, { s_program: 'Other' })).fields.s_program_other);
 });
 
 console.log('F003 (public form)');
@@ -461,6 +568,7 @@ test('F003 response is the same whether or not the case exists', () => {
 console.log('Flood guard');
 test('submissions above the per minute limit are refused', () => {
   Object.keys(intake.cache).forEach(k => delete intake.cache[k]);
+  keepRate = true;
   let last;
   for (let i = 0; i < IEO.MAX_SUBMISSIONS_PER_MINUTE + 1; i++) last = post('submit_f001', { consent: false });
   assert.match(last.error, /Many forms/);
