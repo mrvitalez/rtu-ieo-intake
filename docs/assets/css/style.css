@@ -189,6 +189,10 @@ table.plain th { background: var(--surface); }
 /* Only the first bold text in a step is its title on its own line; bold words inside sentences stay inline. */
 .flow > li > strong:first-child { display: block; }
 .branch { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+/* Numbered steps inside each stage; numbering continues across stages with start="" */
+.flow .steps { margin: 0.35rem 0 0; padding-left: 1.6rem; }
+.flow .steps > li { margin-bottom: 0.4rem; }
+.flow .steps > li::marker { color: var(--ink-soft); font-weight: 700; }
 
 .form-links { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); margin: 1rem 0; }
 .form-link { border: 1px solid var(--line); border-top: 5px solid var(--blue); border-radius: var(--radius-m); padding: 1rem 1.1rem; background: var(--paper); }

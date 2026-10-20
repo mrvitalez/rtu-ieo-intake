@@ -32,7 +32,7 @@ async function shot(page, name, full) {
 
   await step('home page renders the SOP flow and links', async () => {
     await page.goto(BASE);
-    assert.strictEqual(await page.locator('.flow > li').count(), 8);
+    assert.strictEqual(await page.locator('.flow > li').count(), 7);
     await shot(page, 'home', true);
   });
 
