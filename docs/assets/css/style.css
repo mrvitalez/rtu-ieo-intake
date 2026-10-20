@@ -186,7 +186,8 @@ table.plain th { background: var(--surface); }
 .flow > li:last-child::after { display: none; }
 .flow > li:nth-child(3n+2)::before { background: var(--teal); }
 .flow > li:nth-child(3n)::before { background: var(--violet); }
-.flow strong { display: block; }
+/* Only the first bold text in a step is its title on its own line; bold words inside sentences stay inline. */
+.flow > li > strong:first-child { display: block; }
 .branch { margin: 0.4rem 0 0; padding-left: 1.1rem; }
 
 .form-links { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); margin: 1rem 0; }
