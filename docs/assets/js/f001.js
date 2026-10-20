@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('copy-self').addEventListener('click', function () {
     var n = document.getElementById('s_name').value.trim();
     document.getElementById('r_name').value = n;
+    if (!document.getElementById('r_email').value) document.getElementById('r_email').value = document.getElementById('s_email').value.trim();
     document.getElementById('attest_name').value = '';
     document.getElementById('r_name').focus();
   });

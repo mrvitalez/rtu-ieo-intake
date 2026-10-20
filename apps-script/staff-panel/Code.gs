@@ -144,7 +144,7 @@ function getCase(caseId) {
     evaluation: ieoEvaluateDocuments_(categories, received),
     linkActive: !!c.link_purpose && !ieoLinkExpired_(c),
     suggestedStudentEmail: c.student_email || (portfolios.length ? portfolios[portfolios.length - 1].email : '') ||
-      (function () { var r = byCase('F001_Referrals')[0]; return r && r.r_source === 'Self' ? r.r_email : ''; })()
+      (function () { var r = byCase('F001_Referrals')[0]; return r ? (r.s_email || (r.r_source === 'Self' ? r.r_email : '')) : ''; })()
   };
 }
 

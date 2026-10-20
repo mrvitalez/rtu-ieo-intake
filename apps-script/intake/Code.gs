@@ -71,7 +71,7 @@ function doPost(e) {
 function submitF001_(d) {
   var v = new Validator_(d);
   v.text('s_name', true).text('s_program', true).text('s_department', true)
-    .text('s_student_no', false).date('s_birthday', false).number('s_age', false, 10, 99)
+    .text('s_student_no', false).email('s_email', true).date('s_birthday', false).number('s_age', false, 10, 99)
     .oneOf('s_sex', IEO.SEX, false)
     .manyOf('reasons', IEO.REFERRAL_REASONS, true)
     .text('r_name', true).text('r_contact', false).text('r_department', false)
@@ -97,6 +97,7 @@ function submitF001_(d) {
   ieoAppend_('Cases', {
     case_id: caseId, created_at: now, stage: 'RECEIVED',
     student_name: o.s_name, student_no: o.s_student_no, program: o.s_program, department: o.s_department,
+    student_email: o.s_email.toLowerCase(),
     referral_source: o.r_source === 'Others' ? 'Others: ' + o.r_source_other : o.r_source,
     documents_complete: 'No', f003_issued_count: 0, updated_at: now, updated_by: 'F001 public form'
   });

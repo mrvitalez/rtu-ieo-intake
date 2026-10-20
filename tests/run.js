@@ -99,7 +99,7 @@ const tokenOf = link => /#t=([a-f0-9]{64})$/.exec(link)[1];
 const futureDay = new Date(Date.now() + 8 * 3600000 + 3 * 86400000).toISOString().slice(0, 10);
 const SCHED = { date: futureDay, start: '09:00', end: '10:00', mode: 'In person', venue: '', send_email: false, send_invite: false };
 const F001 = {
-  s_name: 'Dela Cruz, Juan Santos', s_program: 'BS Electronics Engineering', s_department: 'CEIT', s_student_no: '2026-100234',
+  s_name: 'Dela Cruz, Juan Santos', s_program: 'BS Electronics Engineering', s_department: 'CEIT', s_student_no: '2026-100234', s_email: 'Juan.DelaCruz@rtu.edu.ph',
   s_birthday: '2007-03-14', s_age: '19', s_sex: 'Male', reasons: ['Academic Challenged', 'Others'], reason_other: 'Frequent absences',
   r_name: 'Maria Reyes', r_contact: '09171234567', r_department: 'CEIT', r_email: 'mreyes@rtu.edu.ph', r_designation: 'Instructor',
   r_source: 'Faculty', observations: 'Has trouble reading the board.', attest_name: 'maria  reyes', client_datetime: 'today', consent: true
@@ -146,13 +146,25 @@ test('a failed alert email does not lose the referral', () => {
   world.failMail = false;
   assert.strictEqual(r.ok, true);
 });
+test('the student email is required, checked, and saved on the case', () => {
+  assert.ok(post('submit_f001', Object.assign({}, F001, { s_email: 'not-an-email' })).fields.s_email);
+  assert.strictEqual(rows('Cases')[0].student_email, 'juan.delacruz@rtu.edu.ph');
+  assert.strictEqual(S.getCase(caseId).suggestedStudentEmail, 'juan.delacruz@rtu.edu.ph');
+});
+test('an older spreadsheet without the new columns is upgraded automatically', () => {
+  const sh = ss.getSheetByName('F001_Referrals');
+  const col = sh.data[0].indexOf('s_email');
+  sh.data.forEach(r => r.splice(col, 1));
+  assert.strictEqual(post('submit_f001', Object.assign({}, F001, { s_name: 'Upgrade Test' })).ok, true);
+  assert.strictEqual(rows('F001_Referrals').pop().s_email, 'Juan.DelaCruz@rtu.edu.ph');
+});
 test('case numbers count up', () => {
-  assert.match(post('submit_f001', Object.assign({}, F001, { s_name: 'Second Student' })).ref, /-0003$/);
+  assert.match(post('submit_f001', Object.assign({}, F001, { s_name: 'Second Student' })).ref, /-0004$/);
 });
 test('missing required answers come back as field errors', () => {
   const r = post('submit_f001', { consent: true });
   assert.strictEqual(r.ok, false);
-  ['s_name', 's_program', 's_department', 'reasons', 'r_name', 'r_source', 'attest_name', 'r_contact'].forEach(k => assert.ok(r.fields[k], k));
+  ['s_name', 's_program', 's_department', 's_email', 'reasons', 'r_name', 'r_source', 'attest_name', 'r_contact'].forEach(k => assert.ok(r.fields[k], k));
 });
 test('consent is required', () => {
   assert.ok(post('submit_f001', Object.assign({}, F001, { consent: false })).fields.consent);

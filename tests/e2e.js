@@ -52,6 +52,7 @@ async function shot(page, name, full) {
     await page.fill('#s_program', 'BS Electronics Engineering');
     await page.fill('#s_department', 'CEIT');
     await page.fill('#s_student_no', '2026-100234');
+    await page.fill('#s_email', 'juan@example.com');
     await page.fill('#s_birthday', '2007-03-14');
     assert.ok(Number(await page.inputValue('#s_age')) >= 18, 'age filled from birthday');
     await page.check('#s_sex_m');

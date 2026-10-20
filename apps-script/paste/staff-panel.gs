@@ -179,7 +179,7 @@ var IEO = {
     F001_Referrals: ['case_id', 'submitted_at', 's_name', 's_program', 's_department', 's_student_no',
       's_birthday', 's_age', 's_sex', 'reasons', 'reason_other', 'r_name', 'r_contact', 'r_department',
       'r_email', 'r_designation', 'r_source', 'r_source_other', 'observations', 'attest_name',
-      'client_datetime', 'consent'],
+      'client_datetime', 'consent', 's_email'],
     F002_Portfolios: ['case_id', 'submitted_at', 'course', 'last_name', 'first_name', 'middle_name',
       'nickname', 'present_address', 'provincial_address', 'age', 'sex', 'civil_status', 'religion',
       'nationality', 'telephone', 'mobile', 'email', 'pwd_id', 'ip_member', 'ip_groups', 'ip_other',
@@ -244,9 +244,24 @@ function ieoSheet_(name) {
 /** Append a record object to a tab, matching keys to the header row. */
 function ieoAppend_(name, record) {
   var sh = ieoSheet_(name);
-  var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  var headers = ieoHeaders_(sh, name);
   var row = headers.map(function (h) { return record.hasOwnProperty(h) ? record[h] : ''; });
   sh.appendRow(row);
+}
+
+/**
+ * The tab's header row. Columns added to IEO.SHEETS in a newer version of the code
+ * are appended automatically, so an existing spreadsheet keeps working after an update.
+ */
+function ieoHeaders_(sh, name) {
+  var headers = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
+  var missing = (IEO.SHEETS[name] || []).filter(function (h) { return headers.indexOf(h) < 0; });
+  if (missing.length) {
+    sh.getRange(1, headers.length + 1, 1, missing.length).setValues([missing]).setFontWeight('bold');
+    sh.getRange(1, headers.length + 1, sh.getMaxRows(), missing.length).setNumberFormat('@');
+    headers = headers.concat(missing);
+  }
+  return headers;
 }
 
 /** Read a whole tab as objects keyed by header. Adds _row (1 based sheet row). */
@@ -264,7 +279,7 @@ function ieoReadAll_(name) {
 /** Update named columns on one row of a tab. */
 function ieoUpdate_(name, rowNumber, changes) {
   var sh = ieoSheet_(name);
-  var headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  var headers = ieoHeaders_(sh, name);
   Object.keys(changes).forEach(function (k) {
     var col = headers.indexOf(k);
     if (col < 0) throw new Error('Unknown column ' + k + ' in ' + name);
@@ -470,7 +485,7 @@ function getCase(caseId) {
     evaluation: ieoEvaluateDocuments_(categories, received),
     linkActive: !!c.link_purpose && !ieoLinkExpired_(c),
     suggestedStudentEmail: c.student_email || (portfolios.length ? portfolios[portfolios.length - 1].email : '') ||
-      (function () { var r = byCase('F001_Referrals')[0]; return r && r.r_source === 'Self' ? r.r_email : ''; })()
+      (function () { var r = byCase('F001_Referrals')[0]; return r ? (r.s_email || (r.r_source === 'Self' ? r.r_email : '')) : ''; })()
   };
 }
 
