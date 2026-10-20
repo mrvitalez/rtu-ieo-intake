@@ -35,8 +35,8 @@ function doGet() {
   t.siteUrl = String(PropertiesService.getScriptProperties().getProperty('SITE_URL') || '');
   return t.evaluate()
     .setTitle('IEO staff panel')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DENY);
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  // Framing is left at Apps Script's DEFAULT, which already stops other sites from embedding the panel.
 }
 
 /** Used by Panel.html to pull in F003Sheet.html (the shared F003 printable sheet). */

@@ -132,7 +132,7 @@ function loadProject(dir, world, opts) {
       createTextOutput: s => ({ content: s, setMimeType() { return this; }, getContent() { return this.content; } })
     },
     HtmlService: {
-      XFrameOptionsMode: { DENY: 'DENY' },
+      XFrameOptionsMode: { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' }, // the only two values Google supports
       createHtmlOutput: h => htmlOut(h),
       createHtmlOutputFromFile: n => htmlOut(fs.readFileSync(path.join(dir, n + '.html'), 'utf8')),
       createTemplateFromFile: n => {
@@ -151,7 +151,7 @@ function loadProject(dir, world, opts) {
     }
   };
   function htmlOut(h) {
-    return { html: h, setTitle() { return this; }, addMetaTag() { return this; }, setXFrameOptionsMode() { return this; }, getContent() { return this.html; } };
+    return { html: h, setTitle() { return this; }, addMetaTag() { return this; }, setXFrameOptionsMode(m) { if (m == null) throw new Error('Argument cannot be null: mode'); return this; }, getContent() { return this.html; } };
   }
   vm.createContext(ctx);
   ['Schema.gs', 'Code.gs'].forEach(f => vm.runInContext(fs.readFileSync(path.join(dir, f), 'utf8'), ctx, { filename: path.join(dir, f) }));
