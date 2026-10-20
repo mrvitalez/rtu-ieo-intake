@@ -44,7 +44,9 @@
     document.querySelectorAll('[data-consent]').forEach(function (box) {
       var name = box.getAttribute('data-consent') || 'consent';
       var intro = box.innerHTML;
-      box.innerHTML = '<div class="statement">' + intro + CONSENT_HTML + '</div>' +
+      // data-consent-full: the page supplies its whole consent text (F001). Otherwise the RTU text above is added.
+      var text = box.hasAttribute('data-consent-full') ? intro : intro + CONSENT_HTML;
+      box.innerHTML = '<div class="statement">' + text + '</div>' +
         '<div class="field agree-field"><label class="choice agree"><input type="checkbox" name="' + name + '" id="' + name + '" required> ' +
         '<span>I have read the Data Privacy Consent and I agree to it.</span></label></div>';
     });

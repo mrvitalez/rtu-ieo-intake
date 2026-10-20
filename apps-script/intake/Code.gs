@@ -76,7 +76,7 @@ function submitF001_(d) {
   v.text('s_name', true).text('s_program', true).text('s_department', true)
     .text('s_student_no', false).email('s_email', true).date('s_birthday', false).number('s_age', false, 10, 99)
     .oneOf('s_sex', IEO.SEX, false)
-    .manyOf('reasons', IEO.REFERRAL_REASONS, true)
+    .manyOf('reasons', IEO.REFERRAL_REASONS.concat(IEO.REFERRAL_REASONS_PREVIOUS), true)
     .text('r_name', true).text('r_contact', false).text('r_department', false)
     .email('r_email', false).text('r_designation', false)
     .oneOf('r_source', IEO.REFERRAL_SOURCES, true)

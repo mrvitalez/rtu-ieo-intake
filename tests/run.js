@@ -105,7 +105,7 @@ const futureDay = new Date(Date.now() + 8 * 3600000 + 3 * 86400000).toISOString(
 const SCHED = { date: futureDay, start: '09:00', end: '10:00', mode: 'In person', venue: '', send_email: false, send_invite: false };
 const F001 = {
   s_name: 'Dela Cruz, Juan Santos', s_program: 'BS Electronics Engineering', s_department: 'CEIT', s_student_no: '2026-100234', s_email: 'Juan.DelaCruz@rtu.edu.ph',
-  s_birthday: '2007-03-14', s_age: '19', s_sex: 'Male', reasons: ['Academic Challenged', 'Others'], reason_other: 'Frequent absences',
+  s_birthday: '2007-03-14', s_age: '19', s_sex: 'Male', reasons: ['Academic Challenges', 'Others'], reason_other: 'Frequent absences',
   r_name: 'Maria Reyes', r_contact: '09171234567', r_department: 'CEIT', r_email: 'mreyes@rtu.edu.ph', r_designation: 'Instructor',
   r_source: 'Faculty', observations: 'Has trouble reading the board.', attest_name: 'maria  reyes', client_datetime: 'today', consent: true
 };
@@ -136,7 +136,7 @@ test('a valid referral creates a case and returns only a reference number', () =
   assert.strictEqual(c.stage, 'RECEIVED');
   assert.strictEqual(c.student_no, '2026-100234');
   assert.strictEqual(rows('F001_Referrals')[0].r_contact, '09171234567', 'leading zero kept');
-  assert.strictEqual(rows('F001_Referrals')[0].reasons, 'Academic Challenged; Others');
+  assert.strictEqual(rows('F001_Referrals')[0].reasons, 'Academic Challenges; Others');
 });
 test('a new referral emails the IEO alert list without student details', () => {
   const m = world.mail.filter(x => /New referral slip/.test(x.subject));
@@ -170,6 +170,15 @@ test('missing required answers come back as field errors', () => {
   const r = post('submit_f001', { consent: true });
   assert.strictEqual(r.ok, false);
   ['s_name', 's_program', 's_department', 's_email', 'reasons', 'r_name', 'r_source', 'attest_name', 'r_contact'].forEach(k => assert.ok(r.fields[k], k));
+});
+test('the earlier reason wording is still accepted', () => {
+  assert.strictEqual(post('submit_f001', Object.assign({}, F001, { s_name: 'Old Page', reasons: ['Academic Challenged'] })).ok, true);
+});
+test('F001 has its own consent text; F002 keeps the original RTU consent', () => {
+  const f1 = read('docs/f001.html');
+  assert.ok(/data-consent-full/.test(f1) && f1.includes('grant my voluntary consent') && f1.includes('his/her own consent'));
+  assert.ok(!/data-consent-full/.test(read('docs/f002.html')));
+  assert.ok(read('docs/assets/js/common.js').includes('free, voluntary and unconditional consent'));
 });
 test('consent is required', () => {
   assert.ok(post('submit_f001', Object.assign({}, F001, { consent: false })).fields.consent);

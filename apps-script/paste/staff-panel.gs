@@ -44,12 +44,14 @@ var IEO = {
 
   // F001 Referral Slip
   REFERRAL_REASONS: [
-    'Academic Challenged',
-    'Behavioral Challenged',
-    'Mobility/Sensory Challenged',
+    'Academic Challenges',
+    'Behavioral Challenges',
+    'Mobility/Sensory Challenges',
     'Student from Marginalized Sector',
     'Others'
   ],
+  // Earlier wording, still accepted so a page opened before an update can be submitted.
+  REFERRAL_REASONS_PREVIOUS: ['Academic Challenged', 'Behavioral Challenged', 'Mobility/Sensory Challenged'],
   REFERRAL_SOURCES: ['CAWO', 'AO', 'UC', 'Faculty', 'Student/Classmate', 'Self', 'Others'],
   SEX: ['Male', 'Female'],
 
