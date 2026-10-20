@@ -102,6 +102,11 @@ function getConfig() {
     linkValidDays: IEO.LINK_VALID_DAYS,
     interviewModes: IEO.INTERVIEW_MODES,
     contactMethods: IEO.CONTACT_METHODS,
+    unmatchedF004: (function () {
+      var ids = {};
+      ieoReadAll_('Cases').forEach(function (c) { ids[String(c.case_id).toUpperCase()] = true; });
+      return ieoReadAll_('F004_Requests').filter(function (r) { return r.status === 'Pending' && !ids[String(r.case_id).toUpperCase()]; }).length;
+    })(),
     defaultVenue: IEO.DEFAULT_VENUE,
     staffEmail: currentEmail_(),
     sharedCalendar: !!PropertiesService.getScriptProperties().getProperty('CALENDAR_ID')
@@ -110,8 +115,11 @@ function getConfig() {
 
 function listCases() {
   requireStaff_();
+  var pendingReq = {};
+  ieoReadAll_('F004_Requests').forEach(function (r) { if (r.status === 'Pending') pendingReq[String(r.case_id).toUpperCase()] = true; });
   return ieoReadAll_('Cases').map(function (c) {
     return {
+      f004_pending: !!pendingReq[String(c.case_id).toUpperCase()],
       case_id: c.case_id, created_at: c.created_at, stage: c.stage, student_name: c.student_name,
       student_no: c.student_no, program: c.program, department: c.department,
       referral_source: c.referral_source, updated_at: c.updated_at,
@@ -139,6 +147,7 @@ function getCase(caseId) {
     portfolio: portfolios[portfolios.length - 1] || null,
     waiver: waivers[waivers.length - 1] || null,
     f003: byCase('F003_Referrals'),
+    f004: requestsFor_(caseId),
     sessions: byCase('Sessions'),
     notes: byCase('CaseNotes').reverse(),
     categories: categories,
@@ -227,10 +236,51 @@ function issueF003(caseId, form) {
     };
     ieoAppend_('F003_Referrals', rec);
     touch_(c, email, { stage: 'DOCS_PENDING', f003_issued_count: Number(c.f003_issued_count || 0) + 1 });
+
+    // Close the student's F004 request that this F003 answers, if one was chosen.
+    var req = form.request_id ? requestsFor_(c.case_id).filter(function (r) { return r.request_id === form.request_id; })[0] : null;
+    if (req && req.status === 'Pending') {
+      ieoUpdate_('F004_Requests', req._row, { status: 'Issued', handled_by: email, handled_at: now, f003_id: rec.f003_id });
+    }
+
+    // Tell the student the F003 is ready for pickup at the IEO.
+    rec.pickupEmailSent = false;
+    if (form.notify_pickup) {
+      var to = c.student_email || (req && req.s_email);
+      if (!to) throw new Error('There is no student email on this case to send the pickup notice. Untick the email option or add the email when scheduling.');
+      MailApp.sendEmail({
+        to: to,
+        subject: 'RTU Inclusive Education Office: your Referral Form for Required Documents is ready (' + c.case_id + ')',
+        body: ['Dear ' + readableName_(c.student_name) + ',', '',
+          'Your Referral Form for Required Documents (RTU-OVPAA-IEO-F003), addressed to your ' + prof.toLowerCase() + ', is ready.', '',
+          'Please pick it up at the Inclusive Education Office, Rizal Technological University, Boni Avenue, Mandaluyong City. Bring your school ID.',
+          'Sign the student\'s authorization on the form, then bring it to your ' + prof.toLowerCase() + '. Return the completed form and the documents to the IEO.', '',
+          'Reference no.: ' + c.case_id, '', 'Rizal Technological University', 'Inclusive Education Office', '(02) 8534-8267 loc. 1202'].join('\n'),
+        name: 'RTU Inclusive Education Office'
+      });
+      rec.pickupEmailSent = true;
+    }
     rec.docs_requested = docs;
     rec.ok = true;
-    rec._audit = rec.f003_id;
+    rec._audit = rec.f003_id + (req ? ' for ' + req.request_id : '') + (rec.pickupEmailSent ? ', pickup email sent' : '');
     return rec;
+  });
+}
+
+function requestsFor_(caseId) {
+  return ieoReadAll_('F004_Requests').filter(function (r) { return String(r.case_id).toUpperCase() === String(caseId).toUpperCase(); });
+}
+
+/** Closes an F004 request without issuing an F003 (for example the student already has a diagnosis). */
+function declineF004(caseId, requestId, note) {
+  return staffWrite_(caseId, 'F004_DECLINED', function (c, email) {
+    var req = requestsFor_(c.case_id).filter(function (r) { return r.request_id === requestId; })[0];
+    if (!req) throw new Error('Request not found on this case.');
+    if (req.status !== 'Pending') throw new Error('This request is already ' + String(req.status).toLowerCase() + '.');
+    var n = ieoClean_(note, 1000);
+    if (!n) throw new Error('Write the reason (for example: the student already submitted a clinical diagnosis).');
+    ieoUpdate_('F004_Requests', req._row, { status: 'Declined', handled_by: email, handled_at: ieoNow_(), staff_note: n });
+    return { ok: true, _audit: requestId + ': ' + n };
   });
 }
 

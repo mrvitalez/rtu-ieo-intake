@@ -17,7 +17,8 @@ var IEO = {
   FORMS: {
     F001: 'RTU-OVPAA-IEO-F001 Referral Slip for Needs Assessment',
     F002: 'RTU-OVPAA-IEO-F002 Student Portfolio Form for Inclusive Education',
-    F003: 'RTU-OVPAA-IEO-F003 Referral Form for Required Documents'
+    F003: 'RTU-OVPAA-IEO-F003 Referral Form for Required Documents (staff only)',
+    F004: 'RTU-OVPAA-IEO-F004 Request for Referral Form for Clinical Diagnosis'
   },
 
   /** Case stages, in SOP flowchart order. */
@@ -253,6 +254,9 @@ var IEO = {
     ContactAttempts: ['case_id', 'attempt_no', 'target', 'contact_name', 'contact', 'method', 'contacted_at',
       'due_date', 'result', 'result_at', 'staff', 'note'],
     Programs: ['college', 'program', 'head_name', 'head_email'],
+    F004_Requests: ['request_id', 'case_id', 'case_found', 'email_matches', 'submitted_at', 's_name', 's_student_no',
+      's_email', 'to_profession', 'to_name', 'to_institution', 'to_address', 'notes', 'consent',
+      'status', 'handled_by', 'handled_at', 'f003_id', 'staff_note'],
     AuditLog: ['at', 'actor', 'action', 'case_id', 'detail']
   },
 
@@ -317,6 +321,25 @@ function ieoAddWorkingDays_(isoDate, n) {
     if (wd <= 5) added++;
   }
   return Utilities.formatDate(d, IEO.TIMEZONE, 'yyyy-MM-dd');
+}
+
+/**
+ * Marks the follow up as answered because the student got in touch (for example by sending F004).
+ * Closes the attempt that is waiting, or logs one if none was started.
+ */
+function ieoMarkFollowUpResponded_(c, note, by) {
+  if (c.followup_status === 'RESPONDED' || c.followup_status === 'UNREACHABLE') return false;
+  var now = ieoNow_();
+  var attempts = ieoReadAll_('ContactAttempts').filter(function (a) { return String(a.case_id) === String(c.case_id); });
+  var pending = attempts.filter(function (a) { return !a.result; })[0];
+  if (pending) {
+    ieoUpdate_('ContactAttempts', pending._row, { result: 'Responded', result_at: now, note: [pending.note, note].filter(String).join(' | ') });
+  } else {
+    ieoAppend_('ContactAttempts', { case_id: c.case_id, attempt_no: attempts.length + 1, target: 'student', contact_name: c.student_name,
+      contact: c.student_email || '', method: 'Other', contacted_at: now, due_date: '', result: 'Responded', result_at: now, staff: by, note: note });
+  }
+  ieoUpdate_('Cases', c._row, { followup_status: 'RESPONDED', followup_due: '', updated_at: now, updated_by: by });
+  return true;
 }
 
 function ieoToday_() {
@@ -546,6 +569,11 @@ function getConfig() {
     linkValidDays: IEO.LINK_VALID_DAYS,
     interviewModes: IEO.INTERVIEW_MODES,
     contactMethods: IEO.CONTACT_METHODS,
+    unmatchedF004: (function () {
+      var ids = {};
+      ieoReadAll_('Cases').forEach(function (c) { ids[String(c.case_id).toUpperCase()] = true; });
+      return ieoReadAll_('F004_Requests').filter(function (r) { return r.status === 'Pending' && !ids[String(r.case_id).toUpperCase()]; }).length;
+    })(),
     defaultVenue: IEO.DEFAULT_VENUE,
     staffEmail: currentEmail_(),
     sharedCalendar: !!PropertiesService.getScriptProperties().getProperty('CALENDAR_ID')
@@ -554,8 +582,11 @@ function getConfig() {
 
 function listCases() {
   requireStaff_();
+  var pendingReq = {};
+  ieoReadAll_('F004_Requests').forEach(function (r) { if (r.status === 'Pending') pendingReq[String(r.case_id).toUpperCase()] = true; });
   return ieoReadAll_('Cases').map(function (c) {
     return {
+      f004_pending: !!pendingReq[String(c.case_id).toUpperCase()],
       case_id: c.case_id, created_at: c.created_at, stage: c.stage, student_name: c.student_name,
       student_no: c.student_no, program: c.program, department: c.department,
       referral_source: c.referral_source, updated_at: c.updated_at,
@@ -583,6 +614,7 @@ function getCase(caseId) {
     portfolio: portfolios[portfolios.length - 1] || null,
     waiver: waivers[waivers.length - 1] || null,
     f003: byCase('F003_Referrals'),
+    f004: requestsFor_(caseId),
     sessions: byCase('Sessions'),
     notes: byCase('CaseNotes').reverse(),
     categories: categories,
@@ -671,10 +703,51 @@ function issueF003(caseId, form) {
     };
     ieoAppend_('F003_Referrals', rec);
     touch_(c, email, { stage: 'DOCS_PENDING', f003_issued_count: Number(c.f003_issued_count || 0) + 1 });
+
+    // Close the student's F004 request that this F003 answers, if one was chosen.
+    var req = form.request_id ? requestsFor_(c.case_id).filter(function (r) { return r.request_id === form.request_id; })[0] : null;
+    if (req && req.status === 'Pending') {
+      ieoUpdate_('F004_Requests', req._row, { status: 'Issued', handled_by: email, handled_at: now, f003_id: rec.f003_id });
+    }
+
+    // Tell the student the F003 is ready for pickup at the IEO.
+    rec.pickupEmailSent = false;
+    if (form.notify_pickup) {
+      var to = c.student_email || (req && req.s_email);
+      if (!to) throw new Error('There is no student email on this case to send the pickup notice. Untick the email option or add the email when scheduling.');
+      MailApp.sendEmail({
+        to: to,
+        subject: 'RTU Inclusive Education Office: your Referral Form for Required Documents is ready (' + c.case_id + ')',
+        body: ['Dear ' + readableName_(c.student_name) + ',', '',
+          'Your Referral Form for Required Documents (RTU-OVPAA-IEO-F003), addressed to your ' + prof.toLowerCase() + ', is ready.', '',
+          'Please pick it up at the Inclusive Education Office, Rizal Technological University, Boni Avenue, Mandaluyong City. Bring your school ID.',
+          'Sign the student\'s authorization on the form, then bring it to your ' + prof.toLowerCase() + '. Return the completed form and the documents to the IEO.', '',
+          'Reference no.: ' + c.case_id, '', 'Rizal Technological University', 'Inclusive Education Office', '(02) 8534-8267 loc. 1202'].join('\n'),
+        name: 'RTU Inclusive Education Office'
+      });
+      rec.pickupEmailSent = true;
+    }
     rec.docs_requested = docs;
     rec.ok = true;
-    rec._audit = rec.f003_id;
+    rec._audit = rec.f003_id + (req ? ' for ' + req.request_id : '') + (rec.pickupEmailSent ? ', pickup email sent' : '');
     return rec;
+  });
+}
+
+function requestsFor_(caseId) {
+  return ieoReadAll_('F004_Requests').filter(function (r) { return String(r.case_id).toUpperCase() === String(caseId).toUpperCase(); });
+}
+
+/** Closes an F004 request without issuing an F003 (for example the student already has a diagnosis). */
+function declineF004(caseId, requestId, note) {
+  return staffWrite_(caseId, 'F004_DECLINED', function (c, email) {
+    var req = requestsFor_(c.case_id).filter(function (r) { return r.request_id === requestId; })[0];
+    if (!req) throw new Error('Request not found on this case.');
+    if (req.status !== 'Pending') throw new Error('This request is already ' + String(req.status).toLowerCase() + '.');
+    var n = ieoClean_(note, 1000);
+    if (!n) throw new Error('Write the reason (for example: the student already submitted a clinical diagnosis).');
+    ieoUpdate_('F004_Requests', req._row, { status: 'Declined', handled_by: email, handled_at: ieoNow_(), staff_note: n });
+    return { ok: true, _audit: requestId + ': ' + n };
   });
 }
 

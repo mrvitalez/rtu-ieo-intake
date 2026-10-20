@@ -263,35 +263,48 @@ async function shot(page, name, full) {
     await shot(panel, 'panel-closed', true);
   });
 
-  await step('F003 public form: print the sheet without saving', async () => {
-    await page.goto(BASE + 'f003.html');
-    await page.check('#prof_physician');
-    await page.fill('#s_name', 'Reyes, Ana');
-    await page.fill('#s_program', 'BS Psychology');
-    await page.click('#print-only');
-    await page.waitForFunction(() => window.__printed >= 1);
-    assert.match(await page.textContent('#sheet'), /TO BE ACCOMPLISHED BY THE ATTENDING/);
-    await page.emulateMedia({ media: 'print' });
-    await shot(page, 'f003-print', true);
-    if (SHOTS) await page.pdf({ path: path.join(SHOTS, 'f003-sample.pdf'), format: 'A4', printBackground: true });
-    await page.emulateMedia({ media: 'screen' });
-  });
-
-  await step('F003 public form: save to records', async () => {
-    await page.goto(BASE + 'f003.html');
+  await step('F004: a referred student requests the F003, and staff see it in the panel', async () => {
+    const r = JSON.parse(srv.intake.ctx.doPost({ postData: { contents: JSON.stringify({ action: 'submit_f001', data: {
+      s_name: 'Santos, Ana', s_program: 'Bachelor of Science in Biology', s_department: 'CAS', s_email: 'ana@example.com',
+      reasons: ['Academic Challenged'], r_name: 'Prof X', r_email: 'x@rtu.edu.ph', r_source: 'Faculty', attest_name: 'Prof X', consent: true } }) } }).getContent());
+    await page.goto(BASE + 'f004.html');
+    await page.fill('#case_id', r.ref.toLowerCase());
+    await page.fill('#s_name', 'Santos, Ana');
+    await page.fill('#s_email', 'ana@example.com');
     await page.check('#prof_psychologist');
-    await page.fill('#s_name', 'Reyes, Ana');
-    await page.fill('#s_program', 'BS Psychology');
-    await page.fill('#issued_by', 'IEO Staff');
+    await page.fill('#to_institution', 'City Clinic');
     await page.check('#consent');
+    await shot(page, 'f004-filled', true);
     await page.click('button[type=submit]');
-    await page.waitForSelector('.form-notice.success');
-    await shot(page, 'f003-saved', true);
+    await page.waitForSelector('#done:not([hidden])');
+    assert.match(await page.textContent('#done-ref'), /^F004-/);
+    await shot(page, 'f004-done');
+    await panel.goto(BASE + 'panel');
+    await panel.selectOption('#stageFilter', 'f004');
+    await panel.waitForSelector('button[data-id="' + r.ref + '"]');
+    assert.match(await panel.textContent('#cases'), /F003 requested/);
+    await panel.click('button[data-id="' + r.ref + '"]');
+    await panel.waitForSelector('[data-decline]');
+    assert.match(await panel.textContent('#detail'), /Student requests for F003/);
+    await panel.fill('#risk', 'note');
+    await panel.click('#saveRisk');
+    await panel.waitForFunction(() => /Responded/.test(document.getElementById('detail').textContent));
+    await panel.check('input[name=cat][value=PHYSICAL_SENSORY]');
+    await panel.click('#openF003');
+    await panel.waitForSelector('#f003Dialog[open]');
+    assert.ok(await panel.isChecked('#f003Dialog input[value=Psychologist]'), 'prefilled from the request');
+    assert.strictEqual(await panel.inputValue('#d_inst'), 'City Clinic');
+    await panel.fill('#d_by', 'Case Manager');
+    await shot(panel, 'panel-f003-from-request');
+    const before = srv.world.mail.length;
+    await panel.click('#f003Issue');
+    await panel.waitForFunction(() => /Issued/.test(document.getElementById('detail').textContent));
+    assert.ok(srv.world.mail.slice(before).some(m => m.to === 'ana@example.com' && /ready/.test(m.subject)), 'pickup email');
   });
 
   await step('mobile width: no sideways scrolling on any page', async () => {
     const m = await browser.newPage({ viewport: { width: 375, height: 800 } });
-    for (const p of ['index.html', 'f001.html', 'f002.html#preview', 'f003.html', 'requirements.html']) {
+    for (const p of ['index.html', 'f001.html', 'f002.html#preview', 'f004.html', 'requirements.html']) {
       await m.goto(BASE + p);
       const wide = await m.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
       assert.ok(!wide, p + ' scrolls sideways');

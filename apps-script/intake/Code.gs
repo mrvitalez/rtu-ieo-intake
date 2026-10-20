@@ -8,7 +8,8 @@
  *   POST submit_f001   create a case from a Referral Slip (F001)
  *   POST submit_f002   save a Student Portfolio (F002), only with a valid staff issued link
  *   POST submit_waiver save the ISP waiver, only after staff marked "No educational assistance needed"
- *   POST submit_f003   record a Referral Form for Required Documents (F003)
+ *   POST submit_f004   a referred student requests a Referral Form for Clinical Diagnosis (F004);
+ *                      the F003 itself is issued only by staff in the staff panel
  *   GET  programs      programs and colleges for the F001 dropdown (never the heads' names or emails)
  *   GET  status        tell a link holder whether their portfolio or waiver is open (no personal data)
  *   GET  ping          health check for the site configuration
@@ -57,7 +58,7 @@ function doPost(e) {
       case 'submit_f001': return json_(submitF001_(data));
       case 'submit_f002': return json_(submitF002_(body.token, data));
       case 'submit_waiver': return json_(submitWaiver_(body.token, data));
-      case 'submit_f003': return json_(submitF003_(data));
+      case 'submit_f004': return json_(submitF004_(data));
       default: return json_({ ok: false, error: 'Unknown form.' });
     }
   } catch (err) {
@@ -197,28 +198,38 @@ function submitWaiver_(token, d) {
   return { ok: true, ref: c.case_id, submittedAt: now };
 }
 
-/* ---------------- F003 Referral Form for Required Documents ---------------- */
+/* ---------------- F004 Request for Referral Form for Clinical Diagnosis ---------------- */
 
-function submitF003_(d) {
+/**
+ * A referred student asks the IEO for a Referral Form for Required Documents (F003).
+ * The request is attached to the case by reference number. The reply is the same whether
+ * or not the case exists, so the form cannot be used to check who has been referred.
+ * The F003 itself is issued only by staff, from the staff panel.
+ */
+function submitF004_(d) {
   var v = new Validator_(d);
-  v.text('case_id', false).date('date_issued', true).text('to_name', false)
-    .oneOf('to_profession', IEO.PROFESSIONS, true).text('to_institution', false).text('to_address', false)
-    .text('s_name', true).text('s_program', true).text('s_student_no', false)
-    .manyOf('docs_requested', IEO.F003_DOCS, true).longText('remarks', false)
-    .text('issued_by', true).text('issued_designation', false).mustBeTrue('consent');
-  if (v.out.case_id && !/^IEO-\d{4}-\d{4,}$/.test(v.out.case_id)) v.fail('case_id', 'Use the reference number format IEO-2026-0001, or leave it blank.');
+  v.text('case_id', true).text('s_name', true).text('s_student_no', false).email('s_email', true)
+    .oneOf('to_profession', IEO.PROFESSIONS, true).text('to_name', false).text('to_institution', false)
+    .text('to_address', false).longText('notes', false).mustBeTrue('consent');
+  if (v.out.case_id) v.out.case_id = v.out.case_id.toUpperCase();
+  if (v.out.case_id && !/^IEO-\d{4}-\d{4,}$/.test(v.out.case_id)) v.fail('case_id', 'Use the reference number format IEO-2026-0001. It is in the email from the IEO.');
   if (!v.ok()) return v.result();
+  var o = v.out;
   var now = ieoNow_();
-  var id = 'F003-' + Utilities.formatDate(new Date(), IEO.TIMEZONE, 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
-  ieoAppend_('F003_Referrals', Object.assign({ f003_id: id, recorded_at: now, recorded_by: 'F003 public form' }, v.out, {
-    docs_requested: v.list('docs_requested').join('; '), consent: 'Yes'
+  var id = 'F004-' + Utilities.formatDate(new Date(), IEO.TIMEZONE, 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+  var c = ieoFindCase_(o.case_id);
+  var emailMatches = !!(c && c.student_email && String(c.student_email).toLowerCase() === o.s_email.toLowerCase());
+  ieoAppend_('F004_Requests', Object.assign({ request_id: id, submitted_at: now }, o, {
+    case_found: c ? 'Yes' : 'No', email_matches: emailMatches ? 'Yes' : 'No', consent: 'Yes', status: 'Pending'
   }));
-  // Only count against a case that really exists; never reveal whether it does.
-  if (v.out.case_id) {
-    var c = ieoFindCase_(v.out.case_id);
-    if (c) ieoUpdate_('Cases', c._row, { f003_issued_count: Number(c.f003_issued_count || 0) + 1, updated_at: now, updated_by: 'F003 public form' });
-  }
-  ieoAudit_('public', 'F003_RECORDED', v.out.case_id, id);
+  if (c && emailMatches) ieoMarkFollowUpResponded_(c, 'Student sent F004 request ' + id, 'F004 public form');
+  ieoAudit_('public', 'F004_SUBMITTED', o.case_id, id + (c ? '' : ' (no such case)') + (c && !emailMatches ? ' (email does not match)' : ''));
+  notifyStaff_('Request for Referral Form for Clinical Diagnosis', o.case_id, [
+    'A student asked for a Referral Form for Required Documents (RTU-OVPAA-IEO-F003) through F004.',
+    c ? (emailMatches ? 'It is attached to the case.' : 'The email given does not match the case. Check before issuing.')
+      : 'No case has this reference number. Find the student in the F004_Requests tab.',
+    'Next step: issue the F003 from the staff panel and have the student pick it up at the IEO.'
+  ]);
   return { ok: true, ref: id, submittedAt: now };
 }
 

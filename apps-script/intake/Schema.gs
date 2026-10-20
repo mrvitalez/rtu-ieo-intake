@@ -15,7 +15,8 @@ var IEO = {
   FORMS: {
     F001: 'RTU-OVPAA-IEO-F001 Referral Slip for Needs Assessment',
     F002: 'RTU-OVPAA-IEO-F002 Student Portfolio Form for Inclusive Education',
-    F003: 'RTU-OVPAA-IEO-F003 Referral Form for Required Documents'
+    F003: 'RTU-OVPAA-IEO-F003 Referral Form for Required Documents (staff only)',
+    F004: 'RTU-OVPAA-IEO-F004 Request for Referral Form for Clinical Diagnosis'
   },
 
   /** Case stages, in SOP flowchart order. */
@@ -251,6 +252,9 @@ var IEO = {
     ContactAttempts: ['case_id', 'attempt_no', 'target', 'contact_name', 'contact', 'method', 'contacted_at',
       'due_date', 'result', 'result_at', 'staff', 'note'],
     Programs: ['college', 'program', 'head_name', 'head_email'],
+    F004_Requests: ['request_id', 'case_id', 'case_found', 'email_matches', 'submitted_at', 's_name', 's_student_no',
+      's_email', 'to_profession', 'to_name', 'to_institution', 'to_address', 'notes', 'consent',
+      'status', 'handled_by', 'handled_at', 'f003_id', 'staff_note'],
     AuditLog: ['at', 'actor', 'action', 'case_id', 'detail']
   },
 
@@ -315,6 +319,25 @@ function ieoAddWorkingDays_(isoDate, n) {
     if (wd <= 5) added++;
   }
   return Utilities.formatDate(d, IEO.TIMEZONE, 'yyyy-MM-dd');
+}
+
+/**
+ * Marks the follow up as answered because the student got in touch (for example by sending F004).
+ * Closes the attempt that is waiting, or logs one if none was started.
+ */
+function ieoMarkFollowUpResponded_(c, note, by) {
+  if (c.followup_status === 'RESPONDED' || c.followup_status === 'UNREACHABLE') return false;
+  var now = ieoNow_();
+  var attempts = ieoReadAll_('ContactAttempts').filter(function (a) { return String(a.case_id) === String(c.case_id); });
+  var pending = attempts.filter(function (a) { return !a.result; })[0];
+  if (pending) {
+    ieoUpdate_('ContactAttempts', pending._row, { result: 'Responded', result_at: now, note: [pending.note, note].filter(String).join(' | ') });
+  } else {
+    ieoAppend_('ContactAttempts', { case_id: c.case_id, attempt_no: attempts.length + 1, target: 'student', contact_name: c.student_name,
+      contact: c.student_email || '', method: 'Other', contacted_at: now, due_date: '', result: 'Responded', result_at: now, staff: by, note: note });
+  }
+  ieoUpdate_('Cases', c._row, { followup_status: 'RESPONDED', followup_due: '', updated_at: now, updated_by: by });
+  return true;
 }
 
 function ieoToday_() {

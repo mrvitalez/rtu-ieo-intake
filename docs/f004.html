@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Request for Referral Form for Clinical Diagnosis (F004) | RTU Inclusive Education Office</title>
+<meta name="description" content="RTU-OVPAA-IEO-F004 Request for Referral Form for Clinical Diagnosis. For referred students who need a clinical diagnosis.">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="assets/img/rtu-seal.png">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to the form</a>
+<header class="letterhead">
+  <div class="letterhead-inner">
+    <img src="assets/img/ieo-banner.png" width="1997" height="188" alt="Rizal Technological University, Inclusive Education Office. Boni Avenue, Cor. Sacrepante St., Brgy. Malamig, City of Mandaluyong, Philippines">
+  </div>
+  <div class="toolbar">
+    <nav aria-label="IEO forms">
+      <a href="index.html">Home</a>
+      <a href="f001.html">Referral slip</a>
+      <a href="requirements.html">Required documents</a>
+    </nav>
+    <div class="text-size" role="group" aria-label="Text size">
+      <span aria-hidden="true">Text size</span>
+      <button type="button" data-text-size="normal" aria-label="Normal text">A</button>
+      <button type="button" data-text-size="large" aria-label="Large text">A+</button>
+      <button type="button" data-text-size="larger" aria-label="Largest text">A++</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="doc" id="form-doc">
+    <div class="form-code"><strong>RTU-OVPAA-IEO-F004</strong><span>SOP-OVPAA-IEO-01 Needs Assessment and Student Profiling</span></div>
+    <h1>REQUEST FOR REFERRAL FORM FOR CLINICAL DIAGNOSIS</h1>
+    <p class="lead">For referred students with a neurodivergent condition or a physical or sensory impairment who do not have a clinical diagnosis yet.</p>
+    <p>Use this form to ask the Inclusive Education Office for a <strong>Referral Form for Required Documents</strong> addressed to your physician, psychiatrist, or psychologist. The IEO prepares it and emails you when it is ready for pickup at the office.</p>
+    <p class="muted small">You need your IEO reference number (for example IEO-2026-0001). It is in the email the IEO sent you. Fields marked <span class="req" aria-hidden="true">*</span><span class="hp">with an asterisk</span> are required.</p>
+
+    <form id="f004" data-ieo-form action="#" method="post">
+      <div data-error-anchor></div>
+      <div class="hp" aria-hidden="true"><label for="website">Leave this empty</label><input type="text" id="website" name="website" tabindex="-1" autocomplete="off"></div>
+
+      <fieldset class="section">
+        <legend>STUDENT</legend>
+        <div class="grid">
+          <div class="field"><label for="case_id">IEO reference no. <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="case_id" name="case_id" required maxlength="20" placeholder="IEO-2026-0001" autocomplete="off"
+              data-pattern="^[Ii][Ee][Oo]-\d{4}-\d{4,}$" data-pattern-message="Use the format IEO-2026-0001. It is in the email from the IEO."></div>
+          <div class="field"><label for="s_student_no">Student No. <span class="opt">(optional)</span></label>
+            <input type="text" id="s_student_no" name="s_student_no" maxlength="40" autocomplete="off"></div>
+          <div class="field span-all"><label for="s_name">Name <span class="req" aria-hidden="true">*</span></label>
+            <input type="text" id="s_name" name="s_name" required maxlength="300" autocomplete="name" aria-describedby="s_name-hint">
+            <span class="hint" id="s_name-hint">Last name, first name, middle name</span></div>
+          <div class="field span-all"><label for="s_email">Email <span class="req" aria-hidden="true">*</span></label>
+            <input type="email" id="s_email" name="s_email" required maxlength="300" autocomplete="email" aria-describedby="s_email-hint">
+            <span class="hint" id="s_email-hint">The email where you received messages from the IEO. We will tell you here when your form is ready.</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section teal">
+        <legend>ADDRESSED TO</legend>
+        <div class="grid">
+          <div class="field span-all" data-group data-label="Addressed to">
+            <span class="group-label" id="prof-label">The form should be addressed to my <span class="req" aria-hidden="true">*</span></span>
+            <div class="inline-choices" role="radiogroup" aria-labelledby="prof-label">
+              <label class="choice"><input type="radio" name="to_profession" id="prof_physician" value="Physician" required> Physician</label>
+              <label class="choice"><input type="radio" name="to_profession" id="prof_psychiatrist" value="Psychiatrist"> Psychiatrist</label>
+              <label class="choice"><input type="radio" name="to_profession" id="prof_psychologist" value="Psychologist"> Psychologist</label>
+            </div></div>
+          <div class="field"><label for="to_name">Name of physician, psychiatrist, or psychologist <span class="opt">(if known)</span></label>
+            <input type="text" id="to_name" name="to_name" maxlength="300"></div>
+          <div class="field"><label for="to_institution">Clinic / Hospital <span class="opt">(if known)</span></label>
+            <input type="text" id="to_institution" name="to_institution" maxlength="300"></div>
+          <div class="field span-all"><label for="to_address">Address <span class="opt">(if known)</span></label>
+            <input type="text" id="to_address" name="to_address" maxlength="300"></div>
+          <div class="field span-all"><label for="notes">Anything the IEO should know <span class="opt">(optional)</span></label>
+            <textarea id="notes" name="notes" maxlength="4000" rows="3" aria-describedby="notes-hint"></textarea>
+            <span class="hint" id="notes-hint">For example, when you can pick up the form.</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="section">
+        <legend>DATA PRIVACY CONSENT</legend>
+        <div data-consent="consent"></div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn">Send request</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="doc" id="done" hidden tabindex="-1">
+    <div class="form-code"><strong>RTU-OVPAA-IEO-F004</strong><span>Request received</span></div>
+    <h1>Request received</h1>
+    <p>Request number</p>
+    <p class="ref-number" id="done-ref"></p>
+    <p>Received <span id="done-time"></span>.</p>
+    <h2>What happens next</h2>
+    <ol>
+      <li>The Inclusive Education Office prepares your Referral Form for Required Documents.</li>
+      <li>You get an email when it is ready. Pick it up at the IEO and bring your school ID.</li>
+      <li>Sign the student&rsquo;s authorization on the form, then bring it to your physician, psychiatrist, or psychologist.</li>
+      <li>Return the completed form and your clinical diagnosis to the IEO.</li>
+    </ol>
+    <p class="muted small">Questions: call the Inclusive Education Office at (02) 8534-8267 local 1202.</p>
+  </div>
+</main>
+
+<footer class="site">
+  <img src="assets/img/ieo-contact.png" width="2000" height="188" alt="Contact the Inclusive Education Office: (02) 8534-8267 local 1202, inclusive education@rtu.edu.ph">
+  <p>Rizal Technological University, Inclusive Education Office. Personal data is handled under Republic Act 10173, the Data Privacy Act of 2012.</p>
+</footer>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/f004.js"></script>
+</body>
+</html>

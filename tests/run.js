@@ -29,9 +29,11 @@ test('the paste ready files in apps-script/paste are up to date', () => {
   Object.keys(files).forEach(f => assert.strictEqual(read('apps-script/paste/' + f), files[f], f + ' is stale: run node tools/build-apps-script.js'));
   assert.ok(!/<\?!=/.test(files['Panel.html']), 'Panel.html has no include left');
 });
-test('staff panel F003Sheet.html is the same code as docs/assets/js/f003-sheet.js', () => {
-  const html = read('apps-script/staff-panel/F003Sheet.html').trim();
-  assert.strictEqual(html, '<script>\n' + read('docs/assets/js/f003-sheet.js') + '</script>');
+test('F003 is staff only: no F003 page or template on the public site', () => {
+  assert.ok(!fs.existsSync(path.join(ROOT, 'docs/f003.html')));
+  assert.ok(!fs.existsSync(path.join(ROOT, 'docs/assets/js/f003-sheet.js')));
+  assert.ok(read('apps-script/staff-panel/F003Sheet.html').includes('window.IEOF003Sheet'));
+  ['index.html', 'requirements.html', 'f001.html', 'f002.html', 'f004.html'].forEach(f => assert.ok(!/href="f003\.html"/.test(read('docs/' + f)), f + ' links to F003'));
 });
 
 const world0 = makeWorld();
@@ -60,12 +62,11 @@ test('F002 IP groups, disabilities, sex and semesters match the schema', () => {
   same(values('f002.html', 'sex'), IEO.SEX);
   same(options('f002.html', 'semester'), IEO.SEMESTERS);
 });
-test('F003 professions and requested documents match the schema', () => {
-  same(values('f003.html', 'to_profession'), IEO.PROFESSIONS);
-  same(values('f003.html', 'docs_requested'), IEO.F003_DOCS);
+test('F004 professions match the schema', () => {
+  same(values('f004.html', 'to_profession'), IEO.PROFESSIONS);
 });
 test('every form page shows the RA 10173 data privacy consent', () => {
-  ['f001.html', 'f002.html', 'f003.html'].forEach(f => assert.ok(/data-consent="consent"/.test(read('docs/' + f)), f));
+  ['f001.html', 'f002.html', 'f004.html'].forEach(f => assert.ok(/data-consent="consent"/.test(read('docs/' + f)), f));
   assert.ok(read('docs/assets/js/common.js').includes('Data Privacy Act of 2012'));
   assert.ok(read('docs/f002.html').includes('data-consent'), 'F002 consent');
 });
@@ -552,17 +553,66 @@ test('"Other" program on F001 uses the typed program', () => {
   assert.ok(post('submit_f001', Object.assign({}, F001, { s_program: 'Other' })).fields.s_program_other);
 });
 
-console.log('F003 (public form)');
-test('F003 is recorded and linked to an existing case', () => {
-  const before = Number(S.ieoFindCase_(caseId).f003_issued_count);
-  const r = post('submit_f003', { case_id: caseId, date_issued: '2026-10-20', to_profession: 'Psychologist', s_name: 'Juan', s_program: 'BSECE', docs_requested: ['Clinical diagnosis'], issued_by: 'Staff', consent: true });
-  assert.strictEqual(r.ok, true, JSON.stringify(r));
-  assert.match(r.ref, /^F003-/);
-  assert.strictEqual(Number(S.ieoFindCase_(caseId).f003_issued_count), before + 1);
+console.log('F004 Request for Referral Form for Clinical Diagnosis');
+test('the public site can no longer record an F003', () => {
+  assert.match(post('submit_f003', { case_id: caseId, to_profession: 'Physician', consent: true }).error, /Unknown form/);
 });
-test('F003 response is the same whether or not the case exists', () => {
-  const r = post('submit_f003', { case_id: 'IEO-2026-9999', date_issued: '2026-10-20', to_profession: 'Physician', s_name: 'X', s_program: 'Y', docs_requested: ['Clinical diagnosis'], issued_by: 'Z', consent: true });
+let ndRef;
+const F004 = { s_name: 'Santos, Ana', s_email: 'ana.santos@rtu.edu.ph', to_profession: 'Psychologist', to_name: 'Dr. Cruz', to_institution: 'City Clinic', notes: 'Free on Fridays', consent: true };
+test('a matching F004 request attaches to the case and counts as the student responding', () => {
+  ndRef = post('submit_f001', Object.assign({}, F001, { s_name: 'Santos, Ana', s_email: 'ana.santos@rtu.edu.ph' })).ref;
+  S.saveRiskNote(ndRef, 'note');
+  S.logContactAttempt(ndRef, { method: 'Phone', to: '0917' });
+  const before = world.mail.length;
+  const r = post('submit_f004', Object.assign({ case_id: ndRef.toLowerCase() }, F004, { s_email: 'Ana.Santos@rtu.edu.ph' }));
+  assert.strictEqual(r.ok, true, JSON.stringify(r));
+  assert.match(r.ref, /^F004-/);
   same(Object.keys(r).sort(), ['ok', 'ref', 'submittedAt']);
+  const req = rows('F004_Requests').pop();
+  assert.ok(req.case_id === ndRef && req.case_found === 'Yes' && req.email_matches === 'Yes' && req.status === 'Pending');
+  assert.strictEqual(S.ieoFindCase_(ndRef).followup_status, 'RESPONDED');
+  assert.strictEqual(rows('ContactAttempts').filter(x => x.case_id === ndRef).pop().result, 'Responded');
+  assert.ok(world.mail.slice(before).some(m => /Request for Referral Form/.test(m.subject) && !m.body.includes('Santos')), 'staff alerted without the name');
+  assert.ok(S.listCases().find(c => c.case_id === ndRef).f004_pending);
+});
+test('staff issue the F003 from the request and the student is emailed to pick it up', () => {
+  S.saveDocuments(ndRef, ['NEURODIVERGENT'], []);
+  const v = S.getCase(ndRef);
+  const reqId = v.f004[0].request_id;
+  const before = world.mail.length;
+  const rec = S.issueF003(ndRef, { request_id: reqId, to_profession: 'Psychologist', to_name: 'Dr. Cruz', issued_by: 'Case Manager', notify_pickup: true });
+  assert.ok(rec.ok && rec.pickupEmailSent);
+  const m = world.mail[before];
+  assert.strictEqual(m.to, 'ana.santos@rtu.edu.ph');
+  assert.ok(/ready/.test(m.subject) && /pick it up/.test(m.body) && m.body.startsWith('Dear Ana Santos,'));
+  const req = S.getCase(ndRef).f004[0];
+  assert.ok(req.status === 'Issued' && req.f003_id === rec.f003_id && req.handled_by === STAFF);
+  assert.ok(!S.listCases().find(c => c.case_id === ndRef).f004_pending);
+});
+test('a request can be declined with a reason', () => {
+  post('submit_f004', Object.assign({ case_id: ndRef }, F004));
+  const req = S.getCase(ndRef).f004.find(r => r.status === 'Pending');
+  assert.throws(() => S.declineF004(ndRef, req.request_id, ''), /reason/);
+  S.declineF004(ndRef, req.request_id, 'Already has a diagnosis');
+  assert.strictEqual(S.getCase(ndRef).f004.find(r => r.request_id === req.request_id).status, 'Declined');
+  assert.throws(() => S.declineF004(ndRef, req.request_id, 'again'), /already declined/);
+});
+test('a request with an email that does not match is kept but flagged, and does not end the follow up', () => {
+  const ref = post('submit_f001', Object.assign({}, F001, { s_name: 'Mismatch' })).ref;
+  post('submit_f004', Object.assign({ case_id: ref }, F004, { s_email: 'someone.else@gmail.com' }));
+  const req = rows('F004_Requests').pop();
+  assert.strictEqual(req.email_matches, 'No');
+  assert.notStrictEqual(S.ieoFindCase_(ref).followup_status, 'RESPONDED');
+});
+test('a request for an unknown reference gets the same reply and is counted for staff', () => {
+  const r = post('submit_f004', Object.assign({ case_id: 'IEO-2026-9999' }, F004));
+  same(Object.keys(r).sort(), ['ok', 'ref', 'submittedAt']);
+  assert.strictEqual(rows('F004_Requests').pop().case_found, 'No');
+  assert.ok(S.getConfig().unmatchedF004 >= 1);
+});
+test('F004 checks the reference format and needs consent', () => {
+  const r = post('submit_f004', Object.assign({}, F004, { case_id: 'ABC', consent: false }));
+  assert.ok(r.fields.case_id && r.fields.consent);
 });
 
 console.log('Flood guard');

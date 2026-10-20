@@ -103,7 +103,7 @@
       <label class="visually-hidden" for="q">Search cases</label>
       <input type="search" id="q" placeholder="Search name, student no., or reference">
       <label class="visually-hidden" for="stageFilter">Filter by stage</label>
-      <select id="stageFilter"><option value="">All open cases</option><option value="followup">Follow ups due</option><option value="upcoming">Upcoming interviews</option><option value="*">All cases, including closed</option></select>
+      <select id="stageFilter"><option value="">All open cases</option><option value="followup">Follow ups due</option><option value="f004">F003 requests</option><option value="upcoming">Upcoming interviews</option><option value="*">All cases, including closed</option></select>
       <button class="btn alt" id="refresh" type="button">Refresh list</button>
     </div>
     <p id="count" class="visually-hidden" aria-live="polite"></p>
@@ -120,6 +120,8 @@
   <form method="dialog" id="f003Form">
     <h2 id="f003Title" style="font-size:1.2rem">Issue RTU-OVPAA-IEO-F003</h2>
     <p style="margin-top:0">Referral Form for Required Documents. The student's details come from the referral slip.</p>
+    <input type="hidden" id="d_request">
+    <p id="d_request_info" class="msg info" hidden></p>
     <div class="grid">
       <div><span class="lbl">Addressed to the student's</span>
         <label class="check"><input type="radio" name="to_profession" value="Physician" required> Physician</label>
@@ -135,6 +137,7 @@
       <div><label class="lbl" for="d_by">Issued by (name)</label><input type="text" id="d_by" name="issued_by" maxlength="300" required></div>
       <div><label class="lbl" for="d_desig">Designation</label><input type="text" id="d_desig" name="issued_designation" maxlength="300" value="Case Manager"></div>
     </div>
+    <label class="check" style="margin-top:0.5rem"><input type="checkbox" id="d_pickup" checked> Email the student that the F003 is ready for pickup at the IEO</label>
     <div id="f003Msg"></div>
     <div class="row"><button class="btn" value="issue" id="f003Issue">Record and print F003</button><button class="btn alt" value="cancel" formnovalidate>Cancel</button></div>
   </form>
@@ -168,9 +171,8 @@
 
 <script>
 /*
- * RTU-OVPAA-IEO-F003 Referral Form for Required Documents: printable sheet.
- * Single source of the F003 wording. The staff panel includes this same file
- * (apps-script/staff-panel/F003Sheet.html); tests/run.js checks they match.
+ * RTU-OVPAA-IEO-F003 Referral Form for Required Documents: printable sheet (staff only).
+ * Single source of the F003 wording. It lives only in the staff panel; the public site has no F003.
  *
  * window.IEOF003Sheet(data, options) returns the HTML of a one page A4 sheet.
  * data: { date_issued, to_name, to_profession, to_institution, to_address,
@@ -299,6 +301,7 @@
     var nowText = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
     var shown = cases.filter(function (c) {
       if (st === 'upcoming') return c.stage !== 'CLOSED' && c.interview_start && c.interview_end >= nowText;
+      if (st === 'f004') return c.f004_pending;
       if (st === 'followup') return c.stage !== 'CLOSED' && (c.followup_status === 'NOT_STARTED' || !c.followup_status ||
         (c.followup_status === 'IN_PROGRESS' && (!c.followup_due || c.followup_due <= nowText.slice(0, 10)))) && ['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) >= 0;
       if (st === '' && c.stage === 'CLOSED') return false;
@@ -308,6 +311,8 @@
     });
     if (st === 'upcoming') shown.sort(function (a, b) { return a.interview_start < b.interview_start ? -1 : 1; });
     $('count').textContent = shown.length + ' cases shown';
+    var unmatched = cfg.unmatchedF004 ? '<li class="msg warn" style="margin:0.5rem;list-style:none">' + cfg.unmatchedF004 +
+      ' F003 request(s) used a reference number that matches no case. See the F004_Requests tab in the sheet.</li>' : '';
     $('cases').innerHTML = shown.length ? shown.map(function (c) {
       return '<li><button type="button" data-id="' + esc(c.case_id) + '"' + (current === c.case_id ? ' aria-current="true"' : '') + '>' +
         '<span class="name">' + esc(c.student_name) + '</span>' +
@@ -316,8 +321,10 @@
         (c.interview_start && c.stage !== 'CLOSED' ? '<span class="meta"><strong>Interview ' + esc(niceWhen(c.interview_start, c.interview_end)) + '</strong></span>' : '') +
         (c.stage !== 'CLOSED' && c.followup_status === 'IN_PROGRESS' && c.followup_due ? '<span class="meta">Follow up: waiting for reply until ' + esc(c.followup_due) + '</span>' : '') +
         (c.stage === 'CLOSED' && c.followup_status === 'UNREACHABLE' ? '<span class="meta">Closed: no response</span>' : '') +
+        (c.f004_pending ? '<span class="meta"><strong>F003 requested by the student</strong></span>' : '') +
         '</button></li>';
     }).join('') : '<li class="empty" style="padding:1rem">No cases match.</li>';
+    if (unmatched) $('cases').insertAdjacentHTML('afterbegin', unmatched);
   }
 
   /* ---------- detail ---------- */
@@ -397,6 +404,17 @@
         '<button class="btn" id="toInterview" type="button">Documents complete: schedule interview</button>' +
         '<button class="btn alt" id="markPending" type="button">Documents incomplete</button>' +
         '<button class="btn alt" id="openF003" type="button">Issue F003</button></div>';
+    }
+    if (v.f004.length) {
+      html += '<p style="margin-bottom:0.25rem"><strong>Student requests for F003 (F004)</strong></p><ul style="margin:0 0 0.75rem">' + v.f004.map(function (r) {
+        return '<li>' + esc(r.submitted_at) + ': for a ' + esc(String(r.to_profession).toLowerCase()) + (r.to_name ? ', ' + esc(r.to_name) : '') +
+          (r.to_institution ? ', ' + esc(r.to_institution) : '') + ' <span class="badge ' + (r.status === 'Pending' ? 'wait' : 'done') + '">' + esc(r.status) + '</span>' +
+          (r.email_matches === 'Yes' ? '' : ' <span class="tag req">Email does not match the case</span>') +
+          (r.notes ? '<br><span style="color:var(--soft)">Note: ' + esc(r.notes) + '</span>' : '') +
+          (r.staff_note ? '<br><span style="color:var(--soft)">Staff: ' + esc(r.staff_note) + '</span>' : '') +
+          (r.status === 'Pending' && docsEditable ? '<br><button class="btn alt" style="min-height:2rem;padding:0.1rem 0.6rem;margin-top:0.25rem" type="button" data-decline="' + esc(r.request_id) + '">Decline request</button>' : '') +
+          '</li>';
+      }).join('') + '</ul>';
     }
     if (v.f003.length) {
       html += '<p style="margin-bottom:0.25rem"><strong>F003 issued</strong></p><ul style="margin:0">' + v.f003.map(function (f, i) {
@@ -632,7 +650,15 @@
       busy(e.target, true);
       saveDocs().then(function () { return call('markDocumentsPending', id); }).then(function () { return reload('Marked as documents incomplete.'); }).catch(fail).then(function () { if ($('markPending')) busy($('markPending'), false); });
     });
-    on('openF003', function () { saveDocs().then(openF003Dialog).catch(fail); });
+    on('openF003', function () { saveDocs().then(function () { openF003Dialog(); }).catch(fail); });
+    document.querySelectorAll('[data-decline]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var reason = prompt('Why is this request declined? (for example: the student already submitted a clinical diagnosis)');
+        if (!reason) return;
+        busy(b, true);
+        call('declineF004', id, b.getAttribute('data-decline'), reason).then(function () { return reload('Request declined.'); }).catch(fail);
+      });
+    });
     document.querySelectorAll('[data-reprint]').forEach(function (b) {
       b.addEventListener('click', function () {
         var f = Object.assign({}, view.f003[+b.getAttribute('data-reprint')]);
@@ -785,10 +811,23 @@
   });
 
   /* ---------- F003 ---------- */
-  function openF003Dialog() {
+  function openF003Dialog(req) {
     var form = $('f003Form');
     form.reset();
     $('f003Msg').innerHTML = '';
+    req = req || (view.f004 || []).filter(function (r) { return r.status === 'Pending'; }).slice(-1)[0] || null;
+    $('d_request').value = req ? req.request_id : '';
+    $('d_request_info').hidden = !req;
+    if (req) {
+      $('d_request_info').innerHTML = 'Answers the student\'s request ' + esc(req.request_id) + ' (' + esc(req.submitted_at) + ').' +
+        (req.email_matches === 'Yes' ? '' : '<br><strong>The email on the request does not match the case.</strong> Confirm it is the student before issuing.') +
+        (req.notes ? '<br>Student\'s note: ' + esc(req.notes) : '');
+      var p = form.querySelector('[name=to_profession][value="' + req.to_profession + '"]');
+      if (p) p.checked = true;
+      $('d_to_name').value = req.to_name || '';
+      $('d_inst').value = req.to_institution || '';
+      $('d_addr').value = req.to_address || '';
+    }
     $('d_docs').innerHTML = cfg.f003Docs.map(function (d, i) {
       return '<label class="check"><input type="checkbox" name="docs_requested" value="' + esc(d) + '"' + (i === 0 ? ' checked disabled' : '') + '> ' + esc(d) + '</label>';
     }).join('');
@@ -804,13 +843,14 @@
     var data = {
       to_profession: prof.value, to_name: $('d_to_name').value, to_institution: $('d_inst').value, to_address: $('d_addr').value,
       remarks: $('d_remarks').value, issued_by: $('d_by').value, issued_designation: $('d_desig').value,
+      request_id: $('d_request').value, notify_pickup: $('d_pickup').checked,
       docs_requested: Array.prototype.map.call(form.querySelectorAll('[name=docs_requested]:checked'), function (e) { return e.value; })
     };
     busy($('f003Issue'), true);
     call('issueF003', current, data).then(function (rec) {
       $('f003Dialog').close();
       printF003(rec);
-      return reload('F003 recorded.');
+      return reload('F003 recorded.' + (rec.pickupEmailSent ? ' The student was emailed to pick it up.' : ''));
     }).catch(function (e) { $('f003Msg').innerHTML = '<div class="msg err">' + esc((e && e.message || String(e)).replace(/^Error: /, '')) + '</div>'; })
       .then(function () { busy($('f003Issue'), false); });
   });

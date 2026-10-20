@@ -26,9 +26,10 @@ Online version of **SOP-OVPAA-IEO-01 Needs Assessment and Student Profiling** fo
 |---|---|---|---|
 | RTU-OVPAA-IEO-F001 | Referral Slip for Needs Assessment | `f001.html` | Anyone: CAWO, AO, UC, faculty, a classmate, or the student |
 | RTU-OVPAA-IEO-F002 | Student Portfolio Form for Inclusive Education (formerly RTU-OVPASA-OSAAS-CASU-F008) | `f002.html` | The referred student, from a personal link issued by the IEO |
-| RTU-OVPAA-IEO-F003 | Referral Form for Required Documents | `f003.html` and the staff panel | IEO staff, printed for the student's physician, psychiatrist, or psychologist |
+| RTU-OVPAA-IEO-F003 | Referral Form for Required Documents | Staff panel only (not on the public site) | IEO staff issue and print it for the student's physician, psychiatrist, or psychologist; the student is emailed to pick it up at the IEO |
+| RTU-OVPAA-IEO-F004 | Request for Referral Form for Clinical Diagnosis | `f004.html` | A referred student without a clinical diagnosis asks the IEO for an F003, using their IEO reference number |
 
-Each form is its own standalone page with its own submission action. `requirements.html` lists the documents per case category, and `f002.html#preview` shows the full F002 (including the waiver) for review without sending anything.
+Each public form is its own standalone page with its own submission action. F003 is staff only: its template lives in the staff panel, and the public endpoint cannot record one. `requirements.html` lists the documents per case category, and `f002.html#preview` shows the full F002 (including the waiver) for review without sending anything.
 
 ## SOP mapping
 
@@ -40,7 +41,7 @@ The SOP flowchart, step by step, and what the system does at each step.
 | 2 | Identify the Risk and Opportunity | (risk note) | F001 captures the *Reason for Referral* and *Other Observations*. Staff write the risk and opportunity note in the panel; the next steps stay locked until it is saved. | Referrer, IEO Staff |
 | 3 | Submission of Referral Slip | `RECEIVED` | F001 is submitted. A case is created with a reference number (`IEO-2026-0001`). | Referrer |
 | 3a | Follow up (IEO step added after the SOP) | (follow up status) | Staff email the referred student to submit the required documents (ready template, editable). No reply after **3 working days**: contact the **referrer**. No reply again: contact the **department head** of the student's program (from the Programs tab). Self referrals skip the referrer. A reply at any attempt ends the follow up and opens step 4. No reply after the last attempt **closes the referral**; it can be reopened if the student gets in touch. Every attempt (email, phone, in person) is logged. | IEO Staff |
-| 4 | Submission of Required Document with Supporting Documents. *Do they have the required documents?* | `RECEIVED` / `DOCS_PENDING` | Staff choose the case category and tick the documents received. **Complete**: staff open the interview stage. **Incomplete**: IP and PDL students are asked to submit the documents; neurodivergent and physical or sensory cases are given F003. | IEO Staff, Referred Student |
+| 4 | Submission of Required Document with Supporting Documents. *Do they have the required documents?* | `RECEIVED` / `DOCS_PENDING` | Staff choose the case category and tick the documents received. **Complete**: staff open the interview stage. **Incomplete**: IP and PDL students are asked to submit the documents; neurodivergent and physical or sensory cases without a clinical diagnosis may request one through F004, and staff issue the F003 from the panel for pickup at the IEO. | IEO Staff, Referred Student |
 | 5 | Answering of Needs Assessment Interview and Student Portfolio Form | `INTERVIEW` → `PORTFOLIO_SUBMITTED` | Staff schedule the interview (date, time, in person or online). The student is emailed the schedule and a personal F002 link, and gets a Google Calendar invite. The student submits F002. Staff record the sessions (Intake, Sessions 1 to 10) and case notes. Interviews can be rescheduled. | Referred Student, IEO Staff (Case Manager) |
 | 6 | *Do they require educational assistance?* | `ISP` or `WAIVER_PENDING` → `WAIVER_SIGNED` | **Yes**: proceed with the Formulation of ISP (SOP-OVPAA-IEO-02). **No**: the waiver section of F002 unlocks and the student signs it from a new link. | IEO Staff, Referred Student |
 | 7 | End of Process | `CLOSED` | Staff close the case. A case can also be closed early with a reason (for example, the student withdrew). | IEO Staff |
@@ -167,7 +168,7 @@ tests/                    Node tests with an in-memory Apps Script mock
 ## Testing
 
 ```
-node tests/run.js        # 72 checks: form options vs schema, validation, workflow order, access control
+node tests/run.js        # 77 checks: form options vs schema, validation, workflow order, access control
 node tests/e2e.js        # full SOP flow in a headless browser (needs Playwright)
 node tests/server.js     # local copy of everything at http://localhost:8765 (panel at /panel)
 ```
