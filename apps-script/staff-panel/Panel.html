@@ -103,7 +103,7 @@
       <label class="visually-hidden" for="q">Search cases</label>
       <input type="search" id="q" placeholder="Search name, student no., or reference">
       <label class="visually-hidden" for="stageFilter">Filter by stage</label>
-      <select id="stageFilter"><option value="">All open cases</option><option value="*">All cases, including closed</option></select>
+      <select id="stageFilter"><option value="">All open cases</option><option value="upcoming">Upcoming interviews</option><option value="*">All cases, including closed</option></select>
       <button class="btn alt" id="refresh" type="button">Refresh list</button>
     </div>
     <p id="count" class="visually-hidden" aria-live="polite"></p>
@@ -140,6 +140,30 @@
   </form>
 </dialog>
 
+<dialog id="schedDialog" aria-labelledby="schedTitle">
+  <form method="dialog" id="schedForm">
+    <h2 id="schedTitle" style="font-size:1.2rem">Schedule the needs assessment interview</h2>
+    <p style="margin-top:0" id="schedIntro">The required documents are complete. Set the interview, then the student gets the schedule and a personal link to the Student Portfolio Form.</p>
+    <div class="grid">
+      <div><label class="lbl" for="s_date">Date</label><input type="date" id="s_date" required></div>
+      <div><label class="lbl" for="s_start">Start time</label><input type="time" id="s_start" required value="09:00"></div>
+      <div><label class="lbl" for="s_end">End time</label><input type="time" id="s_end" required value="10:00"></div>
+    </div>
+    <fieldset style="border:0;padding:0;margin:0.75rem 0 0"><legend class="lbl">Where</legend>
+      <label class="check"><input type="radio" name="s_mode" value="In person" checked> In person</label>
+      <label class="check"><input type="radio" name="s_mode" value="Online"> Online</label></fieldset>
+    <label class="lbl" for="s_venue" id="s_venue_label">Venue</label><input type="text" id="s_venue" maxlength="300">
+    <div class="grid" style="margin-top:0.75rem">
+      <div><label class="lbl" for="s_email">Student email</label><input type="text" id="s_email" maxlength="300" inputmode="email" autocomplete="off"></div>
+      <div><label class="lbl" for="s_others">Also invite (optional)</label><input type="text" id="s_others" maxlength="600" placeholder="casemanager@rtu.edu.ph"></div>
+    </div>
+    <label class="check" style="margin-top:0.5rem"><input type="checkbox" id="s_send_email" checked> <span id="s_send_email_label">Email the student the schedule and the portfolio link</span></label>
+    <label class="check"><input type="checkbox" id="s_send_invite" checked> <span id="s_invite_label">Send a Google Calendar invite</span></label>
+    <div id="schedMsg"></div>
+    <div class="row"><button class="btn" value="go" id="schedGo">Schedule interview</button><button class="btn alt" value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
 <div id="print-area"></div>
 
 <?!= include_('F003Sheet') ?>
@@ -151,6 +175,14 @@
   var $ = function (id) { return document.getElementById(id); };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function niceWhen(start, end) {
+    if (!start) return '';
+    var d = new Date(start.replace(' ', 'T') + ':00+08:00');
+    var opts = { timeZone: 'Asia/Manila' };
+    var day = d.toLocaleDateString('en-PH', Object.assign({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }, opts));
+    var t = function (x) { return new Date(x.replace(' ', 'T') + ':00+08:00').toLocaleTimeString('en-PH', Object.assign({ hour: 'numeric', minute: '2-digit' }, opts)); };
+    return day + ', ' + t(start) + (end ? ' to ' + t(end) : '');
+  }
   function call(fn) {
     var args = Array.prototype.slice.call(arguments, 1);
     return new Promise(function (resolve, reject) {
@@ -173,18 +205,23 @@
   function renderList() {
     var q = $('q').value.trim().toLowerCase();
     var st = $('stageFilter').value;
+    var nowText = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 16).replace('T', ' ');
     var shown = cases.filter(function (c) {
+      if (st === 'upcoming') return c.stage !== 'CLOSED' && c.interview_start && c.interview_end >= nowText;
       if (st === '' && c.stage === 'CLOSED') return false;
       if (st && st !== '*' && c.stage !== st) return false;
       if (!q) return true;
       return [c.case_id, c.student_name, c.student_no, c.program].join(' ').toLowerCase().indexOf(q) >= 0;
     });
+    if (st === 'upcoming') shown.sort(function (a, b) { return a.interview_start < b.interview_start ? -1 : 1; });
     $('count').textContent = shown.length + ' cases shown';
     $('cases').innerHTML = shown.length ? shown.map(function (c) {
       return '<li><button type="button" data-id="' + esc(c.case_id) + '"' + (current === c.case_id ? ' aria-current="true"' : '') + '>' +
         '<span class="name">' + esc(c.student_name) + '</span>' +
         '<span class="meta">' + esc(c.case_id) + ' &middot; ' + esc(cfg.stages[c.stage] || c.stage) + '</span>' +
-        '<span class="meta">' + esc(c.program) + (c.student_no ? ', ' + esc(c.student_no) : '') + '</span></button></li>';
+        '<span class="meta">' + esc(c.program) + (c.student_no ? ', ' + esc(c.student_no) : '') + '</span>' +
+        (c.interview_start && c.stage !== 'CLOSED' ? '<span class="meta"><strong>Interview ' + esc(niceWhen(c.interview_start, c.interview_end)) + '</strong></span>' : '') +
+        '</button></li>';
     }).join('') : '<li class="empty" style="padding:1rem">No cases match.</li>';
   }
 
@@ -277,6 +314,13 @@
     if (!interviewOn) {
       html += '<p class="msg info">Opens when the required documents are complete.</p>';
     } else {
+      if (c.interview_start) {
+        html += '<div class="msg info"><strong>Interview: ' + esc(niceWhen(c.interview_start, c.interview_end)) + '</strong><br>' +
+          (c.interview_mode === 'Online' ? 'Online: <a href="' + esc(c.interview_venue) + '" target="_blank" rel="noopener">' + esc(c.interview_venue) + '</a>' : esc(c.interview_venue)) +
+          (c.student_email ? '<br>Student email: ' + esc(c.student_email) : '') +
+          '<br><span style="font-size:0.88rem;color:var(--soft)">Scheduled by ' + esc(c.interview_scheduled_by) + ', ' + esc(c.interview_scheduled_at) + (c.calendar_event_id ? '. Calendar invite sent.' : '') + '</span></div>';
+        if (at(['INTERVIEW', 'PORTFOLIO_SUBMITTED'])) html += '<div class="row" style="margin-top:0"><button class="btn alt" type="button" id="reschedule">Reschedule interview</button></div>';
+      }
       if (c.stage === 'INTERVIEW') {
         html += linkBlock('portfolio', c);
       }
@@ -425,12 +469,8 @@
 
     function saveDocs() { return call('saveDocuments', id, checkedCats(), checkedDocs()); }
     on('saveDocs', function (e) { busy(e.target, true); saveDocs().then(function () { return reload('Checklist saved.'); }).catch(fail).then(function () { busy(e.target, false); }); });
-    on('toInterview', function (e) {
-      busy(e.target, true);
-      saveDocs().then(function () { return call('proceedToInterview', id); })
-        .then(function (res) { freshLink = { purpose: 'portfolio', link: res.link }; return reload('Interview stage opened. Give the student the portfolio link.'); })
-        .catch(fail).then(function () { if ($('toInterview')) busy($('toInterview'), false); });
-    });
+    on('toInterview', function () { saveDocs().then(function () { openSchedule(false); }).catch(fail); });
+    on('reschedule', function () { openSchedule(true); });
     on('markPending', function (e) {
       busy(e.target, true);
       saveDocs().then(function () { return call('markDocumentsPending', id); }).then(function () { return reload('Marked as documents incomplete.'); }).catch(fail).then(function () { if ($('markPending')) busy($('markPending'), false); });
@@ -489,6 +529,64 @@
       call('closeCase', id, reason).then(function () { return reload('Case closed.'); }).catch(fail);
     });
   }
+
+  /* ---------- interview scheduling ---------- */
+  var schedMode = 'new';
+  function syncVenue() {
+    var online = document.querySelector('[name=s_mode]:checked').value === 'Online';
+    $('s_venue_label').textContent = online ? 'Online meeting link' : 'Venue';
+    $('s_venue').placeholder = online ? 'https://meet.google.com/...' : cfg.defaultVenue;
+    if (online && $('s_venue').value === cfg.defaultVenue) $('s_venue').value = '';
+    if (!online && !$('s_venue').value) $('s_venue').value = cfg.defaultVenue;
+  }
+  document.querySelectorAll('[name=s_mode]').forEach(function (r) { r.addEventListener('change', syncVenue); });
+  function openSchedule(isReschedule) {
+    var c = view.caseRecord;
+    schedMode = isReschedule ? 'move' : 'new';
+    $('schedMsg').innerHTML = '';
+    $('schedTitle').textContent = isReschedule ? 'Reschedule the interview' : 'Schedule the needs assessment interview';
+    $('schedIntro').textContent = isReschedule ? 'Change the date, time, or venue. The calendar invite is updated.'
+      : 'The required documents are complete. Set the interview, then the student gets the schedule and a personal link to the Student Portfolio Form.';
+    $('schedGo').textContent = isReschedule ? 'Save new schedule' : 'Schedule interview';
+    $('s_send_email_label').textContent = isReschedule ? 'Email the student the new schedule' : 'Email the student the schedule and the portfolio link';
+    $('s_invite_label').textContent = (isReschedule && c.calendar_event_id ? 'Update the Google Calendar invite' : 'Send a Google Calendar invite') +
+      (cfg.sharedCalendar ? ' (IEO calendar)' : ' (your calendar)');
+    var today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+    $('s_date').min = today;
+    $('s_date').value = isReschedule && c.interview_start ? c.interview_start.slice(0, 10) : '';
+    $('s_start').value = isReschedule && c.interview_start ? c.interview_start.slice(11, 16) : '09:00';
+    $('s_end').value = isReschedule && c.interview_end ? c.interview_end.slice(11, 16) : '10:00';
+    document.querySelector('[name=s_mode][value="' + (c.interview_mode === 'Online' ? 'Online' : 'In person') + '"]').checked = true;
+    $('s_venue').value = isReschedule ? (c.interview_venue || '') : cfg.defaultVenue;
+    $('s_email').value = view.suggestedStudentEmail || '';
+    $('s_others').value = '';
+    $('s_send_email').checked = true;
+    $('s_send_invite').checked = true;
+    syncVenue();
+    $('schedDialog').showModal();
+  }
+  $('schedForm').addEventListener('submit', function (ev) {
+    if (ev.submitter && ev.submitter.value === 'cancel') return;
+    ev.preventDefault();
+    var data = {
+      date: $('s_date').value, start: $('s_start').value, end: $('s_end').value,
+      mode: document.querySelector('[name=s_mode]:checked').value, venue: $('s_venue').value.trim(),
+      student_email: $('s_email').value.trim(), also_invite: $('s_others').value.trim(),
+      send_email: $('s_send_email').checked, send_invite: $('s_send_invite').checked
+    };
+    busy($('schedGo'), true);
+    call(schedMode === 'move' ? 'rescheduleInterview' : 'proceedToInterview', current, data).then(function (res) {
+      $('schedDialog').close();
+      if (res.link) freshLink = { purpose: 'portfolio', link: res.link };
+      var done = [schedMode === 'move' ? 'Interview moved.' : 'Interview scheduled.'];
+      if (res.emailSent) done.push('The student was emailed.');
+      if (res.eventCreated) done.push('Calendar invite sent.');
+      return reload(done.join(' ')).then(function () {
+        if (res.warnings && res.warnings.length) toast('err', res.warnings.join(' '));
+      });
+    }).catch(function (e) { $('schedMsg').innerHTML = '<div class="msg err">' + esc((e && e.message || String(e)).replace(/^Error: /, '')) + '</div>'; })
+      .then(function () { busy($('schedGo'), false); });
+  });
 
   /* ---------- F003 ---------- */
   function openF003Dialog() {

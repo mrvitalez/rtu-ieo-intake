@@ -24,6 +24,11 @@ console.log('Consistency');
 test('Schema.gs is identical in both Apps Script projects', () => {
   assert.strictEqual(read('apps-script/intake/Schema.gs'), read('apps-script/staff-panel/Schema.gs'));
 });
+test('the paste ready files in apps-script/paste are up to date', () => {
+  const files = require('../tools/build-apps-script').build();
+  Object.keys(files).forEach(f => assert.strictEqual(read('apps-script/paste/' + f), files[f], f + ' is stale: run node tools/build-apps-script.js'));
+  assert.ok(!/<\?!=/.test(files['Panel.html']), 'Panel.html has no include left');
+});
 test('staff panel F003Sheet.html is the same code as docs/assets/js/f003-sheet.js', () => {
   const html = read('apps-script/staff-panel/F003Sheet.html').trim();
   assert.strictEqual(html, '<script>\n' + read('docs/assets/js/f003-sheet.js') + '</script>');
@@ -91,6 +96,8 @@ function post(action, data, token, extra) {
 function status(token) { return JSON.parse(I.doGet({ parameter: { action: 'status', t: token } }).getContent()); }
 const tokenOf = link => /#t=([a-f0-9]{64})$/.exec(link)[1];
 
+const futureDay = new Date(Date.now() + 8 * 3600000 + 3 * 86400000).toISOString().slice(0, 10);
+const SCHED = { date: futureDay, start: '09:00', end: '10:00', mode: 'In person', venue: '', send_email: false, send_invite: false };
 const F001 = {
   s_name: 'Dela Cruz, Juan Santos', s_program: 'BS Electronics Engineering', s_department: 'CEIT', s_student_no: '2026-100234',
   s_birthday: '2007-03-14', s_age: '19', s_sex: 'Male', reasons: ['Academic Challenged', 'Others'], reason_other: 'Frequent absences',
@@ -108,6 +115,9 @@ test('setup() creates every tab with its headers', () => {
   assert.strictEqual(ss.getSheetByName('Sheet1'), null);
 });
 test('setup() can run twice safely', () => { assert.strictEqual(I.setup(), sheetId); });
+test('setup() makes the account that runs it the alert recipient', () => {
+  assert.strictEqual(intake.props.ALERT_EMAILS, 'ieo.owner@gmail.com');
+});
 
 console.log('F001 Referral Slip (public)');
 let caseId;
@@ -123,8 +133,21 @@ test('a valid referral creates a case and returns only a reference number', () =
   assert.strictEqual(rows('F001_Referrals')[0].r_contact, '09171234567', 'leading zero kept');
   assert.strictEqual(rows('F001_Referrals')[0].reasons, 'Academic Challenged; Others');
 });
+test('a new referral emails the IEO alert list without student details', () => {
+  const m = world.mail.filter(x => /New referral slip/.test(x.subject));
+  assert.strictEqual(m.length, 1);
+  assert.strictEqual(m[0].to, 'ieo.owner@gmail.com');
+  assert.ok(m[0].body.includes(caseId));
+  ['Dela Cruz', 'Juan', 'Maria Reyes', '0917', 'read the board'].forEach(t => assert.ok(!m[0].body.includes(t) && !m[0].subject.includes(t), 'leaks ' + t));
+});
+test('a failed alert email does not lose the referral', () => {
+  world.failMail = true;
+  const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Mail Fail' }));
+  world.failMail = false;
+  assert.strictEqual(r.ok, true);
+});
 test('case numbers count up', () => {
-  assert.match(post('submit_f001', Object.assign({}, F001, { s_name: 'Second Student' })).ref, /-0002$/);
+  assert.match(post('submit_f001', Object.assign({}, F001, { s_name: 'Second Student' })).ref, /-0003$/);
 });
 test('missing required answers come back as field errors', () => {
   const r = post('submit_f001', { consent: true });
@@ -187,14 +210,14 @@ test('getCase never exposes the link hash', () => {
 
 console.log('SOP workflow');
 test('the interview cannot start before the risk and opportunity note', () => {
-  assert.throws(() => S.proceedToInterview(caseId), /risk and opportunity/);
+  assert.throws(() => S.proceedToInterview(caseId, SCHED), /risk and opportunity/);
 });
 test('save the risk and opportunity note', () => {
   assert.strictEqual(S.saveRiskNote(caseId, 'Risk: falling behind. Opportunity: early support.').ok, true);
 });
 test('the process may not push forward without the required documents', () => {
   S.saveDocuments(caseId, ['NEURODIVERGENT'], ['pwd_id']);
-  assert.throws(() => S.proceedToInterview(caseId), /may not push forward.*Clinical diagnosis/);
+  assert.throws(() => S.proceedToInterview(caseId, SCHED), /may not push forward.*Clinical diagnosis/);
 });
 test('portfolio cannot be submitted before the interview stage', () => {
   assert.strictEqual(status('a'.repeat(64)).valid, false);
@@ -235,11 +258,57 @@ test('no category means not complete', () => {
 let portfolioToken;
 test('with the clinical diagnosis checked the interview opens and a link is issued', () => {
   S.saveDocuments(caseId, ['NEURODIVERGENT'], ['clinical_dx', 'pwd_id']);
-  const r = S.proceedToInterview(caseId);
+  const r = S.proceedToInterview(caseId, Object.assign({}, SCHED, { student_email: 'juan@example.com', also_invite: 'casemanager2@rtu.edu.ph', send_email: true, send_invite: true }));
   assert.match(r.link, /^https:\/\/example\.github\.io\/rtu-ieo-intake\/f002\.html#t=[a-f0-9]{64}$/);
   portfolioToken = tokenOf(r.link);
   assert.strictEqual(rows('Cases')[0].stage, 'INTERVIEW');
   assert.notStrictEqual(rows('Cases')[0].link_hash, portfolioToken, 'only the hash is stored');
+});
+test('scheduling stores the interview, emails the student the schedule and link, and sends a calendar invite', () => {
+  const c = rows('Cases')[0];
+  assert.strictEqual(c.interview_start, futureDay + ' 09:00');
+  assert.strictEqual(c.interview_venue, IEO.DEFAULT_VENUE);
+  assert.strictEqual(c.student_email, 'juan@example.com');
+  const m = world.mail.filter(x => x.to === 'juan@example.com').pop();
+  assert.ok(m && /interview schedule/.test(m.subject));
+  assert.ok(m.body.includes(portfolioToken), 'portfolio link in the email');
+  assert.strictEqual(m.from, STAFF, 'sent from the staff account');
+  const e = world.events[c.calendar_event_id];
+  assert.ok(e, 'calendar event created');
+  assert.ok(!e.title.includes('Dela Cruz'), 'no name in the event title');
+  assert.deepStrictEqual(e.guests, ['juan@example.com', 'casemanager2@rtu.edu.ph']);
+  assert.strictEqual(e.start.toISOString(), new Date(futureDay + 'T09:00:00+08:00').toISOString());
+});
+test('schedule checks: past date, end before start, online needs a link, email needed to notify', () => {
+  const base = { start: '09:00', end: '10:00', mode: 'In person' };
+  assert.throws(() => S.parseSchedule_(Object.assign({ date: '2020-01-01' }, base)), /past/);
+  assert.throws(() => S.parseSchedule_({ date: futureDay, start: '10:00', end: '09:00' }), /after the start/);
+  assert.throws(() => S.parseSchedule_({ date: futureDay, start: '09:00', end: '10:00', mode: 'Online', venue: 'room 1' }), /meeting link/);
+  assert.throws(() => S.parseSchedule_(Object.assign({ date: futureDay, send_invite: true }, base)), /student email/);
+});
+test('rescheduling moves the same calendar event and emails the new schedule without a new link', () => {
+  const before = rows('Cases')[0].calendar_event_id;
+  S.rescheduleInterview(caseId, { date: futureDay, start: '13:00', end: '14:30', mode: 'Online', venue: 'https://meet.google.com/abc-defg-hij', student_email: 'juan@example.com', send_email: true, send_invite: true });
+  const c = rows('Cases')[0];
+  assert.strictEqual(c.calendar_event_id, before, 'same event');
+  assert.strictEqual(world.events[before].start.toISOString(), new Date(futureDay + 'T13:00:00+08:00').toISOString());
+  assert.strictEqual(world.events[before].guests.length, 2, 'no duplicate guests');
+  const m = world.mail.filter(x => x.to === 'juan@example.com').pop();
+  assert.ok(/moved/.test(m.subject) && !/#t=/.test(m.body));
+  assert.strictEqual(c.interview_mode, 'Online');
+});
+test('a calendar problem is reported but does not block scheduling', () => {
+  staff.props.CALENDAR_ID = 'ieo@group.calendar.google.com';
+  world.sharedCalendars = { 'ieo@group.calendar.google.com': ['someone.else@rtu.edu.ph'] };
+  const r = S.rescheduleInterview(caseId, Object.assign({}, SCHED, { student_email: 'juan@example.com', send_invite: true }));
+  assert.ok(r.ok && !r.eventCreated && /calendar invite could not be sent/.test(r.warnings[0]));
+  world.sharedCalendars['ieo@group.calendar.google.com'].push(STAFF);
+  const r2 = S.rescheduleInterview(caseId, Object.assign({}, SCHED, { student_email: 'juan@example.com', send_invite: true }));
+  assert.ok(r2.eventCreated, 'shared IEO calendar used when CALENDAR_ID is set and shared');
+  delete staff.props.CALENDAR_ID;
+});
+test('upcoming interviews show in the case list', () => {
+  assert.ok(S.listCases().some(c => c.case_id === caseId && c.interview_start === futureDay + ' 09:00'));
 });
 test('documents are locked after the interview opens', () => {
   assert.throws(() => S.saveDocuments(caseId, ['NEURODIVERGENT'], []), /before the interview/);
@@ -275,6 +344,7 @@ test('the waiver cannot be signed before the decision', () => {
 test('a valid portfolio is saved once', () => {
   const r = post('submit_f002', F002, portfolioToken);
   assert.strictEqual(r.ok, true, JSON.stringify(r));
+  assert.ok(world.mail.some(x => /Student portfolio submitted/.test(x.subject) && x.subject.includes(caseId)), 'staff alerted');
   const p = rows('F002_Portfolios')[0];
   assert.strictEqual(p.ip_groups, 'Ifugao; Others');
   assert.strictEqual(rows('Cases')[0].stage, 'PORTFOLIO_SUBMITTED');
@@ -318,7 +388,7 @@ test('"Yes" goes to ISP (SOP-OVPAA-IEO-02) without a waiver', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'ISP Student' }));
   S.saveRiskNote(r.ref, 'note');
   S.saveDocuments(r.ref, ['PDL'], ['bjmp_endorsement', 'cawo_clearance']);
-  const t = tokenOf(S.proceedToInterview(r.ref).link);
+  const t = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   assert.strictEqual(post('submit_f002', Object.assign({}, F002, { ip_member: 'No' }), t).ok, true);
   S.recordDecision(r.ref, true);
   const c = S.ieoFindCase_(r.ref);
@@ -330,7 +400,7 @@ test('reissuing a link invalidates the old one', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Reissue Student' }));
   S.saveRiskNote(r.ref, 'note');
   S.saveDocuments(r.ref, ['IP'], ['coc']);
-  const t1 = tokenOf(S.proceedToInterview(r.ref).link);
+  const t1 = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   const t2 = tokenOf(S.reissueLink(r.ref).link);
   assert.strictEqual(status(t1).valid, false);
   assert.strictEqual(status(t2).portfolioOpen, true);
@@ -339,17 +409,22 @@ test('expired links are refused', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Old Link' }));
   S.saveRiskNote(r.ref, 'note');
   S.saveDocuments(r.ref, ['IP'], ['coc']);
-  const t = tokenOf(S.proceedToInterview(r.ref).link);
+  const t = tokenOf(S.proceedToInterview(r.ref, SCHED).link);
   const c = S.ieoFindCase_(r.ref);
   S.ieoUpdate_('Cases', c._row, { link_issued_at: '2020-01-01 00:00:00' });
   assert.strictEqual(status(t).valid, false);
   assert.match(post('submit_f002', F002, t).error, /expired/);
 });
-test('closing early needs a reason', () => {
+test('closing early needs a reason, and cancels a future interview invite', () => {
   const r = post('submit_f001', Object.assign({}, F001, { s_name: 'Withdrawn' }));
   assert.throws(() => S.closeCase(r.ref, ''), /reason/);
+  S.saveRiskNote(r.ref, 'note');
+  S.saveDocuments(r.ref, ['IP'], ['coc']);
+  S.proceedToInterview(r.ref, Object.assign({}, SCHED, { student_email: 'w@example.com', send_invite: true }));
+  const evId = S.ieoFindCase_(r.ref).calendar_event_id;
   S.closeCase(r.ref, 'Student withdrew');
   assert.strictEqual(S.ieoFindCase_(r.ref).stage, 'CLOSED');
+  assert.strictEqual(world.events[evId].deleted, true);
 });
 test('every staff action is in the audit log with the staff email', () => {
   const log = rows('AuditLog');

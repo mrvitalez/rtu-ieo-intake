@@ -12,6 +12,11 @@
  *   GET  status        tell a link holder whether their portfolio or waiver is open (no personal data)
  *   GET  ping          health check for the site configuration
  *
+ * Script properties (Project Settings > Script properties):
+ *   SHEET_ID         set automatically by setup()
+ *   ALERT_EMAILS     optional, comma separated: who gets an email when a form is submitted
+ *   STAFF_PANEL_URL  optional, the staff panel web app URL, included in alert emails
+ *
  * It never returns stored records. Staff read data only through the staff panel project.
  */
 
@@ -96,6 +101,11 @@ function submitF001_(d) {
     documents_complete: 'No', f003_issued_count: 0, updated_at: now, updated_by: 'F001 public form'
   });
   ieoAudit_('public', 'F001_SUBMITTED', caseId, 'Referral slip received from source ' + o.r_source);
+  notifyStaff_('New referral slip', caseId, [
+    'A new Referral Slip for Needs Assessment (RTU-OVPAA-IEO-F001) was received.',
+    'Referred by: ' + (o.r_source === 'Others' ? 'Others' : o.r_source),
+    'Next step: identify the risk and opportunity, then check the required documents.'
+  ]);
   return { ok: true, ref: caseId, submittedAt: now };
 }
 
@@ -140,6 +150,10 @@ function submitF002_(token, d) {
   }));
   ieoUpdate_('Cases', c._row, { stage: 'PORTFOLIO_SUBMITTED', portfolio_submitted_at: now, updated_at: now, updated_by: 'F002 student link' });
   ieoAudit_('student link', 'F002_SUBMITTED', c.case_id, 'Student portfolio submitted');
+  notifyStaff_('Student portfolio submitted', c.case_id, [
+    'The student submitted the Student Portfolio Form for Inclusive Education (RTU-OVPAA-IEO-F002).',
+    'Next step: complete the needs assessment interview and record whether the student requires educational assistance.'
+  ]);
   return { ok: true, ref: c.case_id, submittedAt: now };
 }
 
@@ -164,6 +178,10 @@ function submitWaiver_(token, d) {
   ieoAppend_('F002_Waivers', Object.assign({ case_id: c.case_id, signed_at: now }, v.out, { consent: 'Yes' }));
   ieoUpdate_('Cases', c._row, { stage: 'WAIVER_SIGNED', waiver_signed_at: now, link_hash: '', link_purpose: '', updated_at: now, updated_by: 'F002 waiver link' });
   ieoAudit_('student link', 'WAIVER_SIGNED', c.case_id, 'ISP waiver signed');
+  notifyStaff_('ISP waiver signed', c.case_id, [
+    'The student signed the Individualized Support Plan waiver.',
+    'Next step: close the case (End of Process).'
+  ]);
   return { ok: true, ref: c.case_id, submittedAt: now };
 }
 
@@ -203,6 +221,35 @@ function linkStatus_(token) {
     portfolioOpen: c.link_purpose === 'portfolio' && c.stage === 'INTERVIEW',
     waiverOpen: c.link_purpose === 'waiver' && c.stage === 'WAIVER_PENDING'
   };
+}
+
+/* ---------------- staff email alerts ---------------- */
+
+/**
+ * Emails the IEO staff listed in the ALERT_EMAILS script property.
+ * For privacy the email carries only the reference number and the next step,
+ * never the student's name or any answers. A failed email never blocks a submission.
+ */
+function notifyStaff_(what, caseId, lines) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var to = String(props.getProperty('ALERT_EMAILS') || '').split(',').map(function (s) { return s.trim(); }).filter(String);
+    if (!to.length) return;
+    var panel = String(props.getProperty('STAFF_PANEL_URL') || '');
+    var body = lines.concat([
+      '',
+      'Reference no.: ' + caseId,
+      'Received: ' + ieoNow_() + ' (Philippine time)',
+      '',
+      panel ? 'Open the IEO staff panel to review it: ' + panel : 'Open the IEO staff panel to review it.',
+      '',
+      'For privacy, student details are not included in this email.',
+      'RTU Inclusive Education Office intake system (SOP-OVPAA-IEO-01)'
+    ]).join('\n');
+    MailApp.sendEmail({ to: to.join(','), subject: 'IEO: ' + what + ' (' + caseId + ')', body: body, name: 'RTU IEO Intake' });
+  } catch (err) {
+    console.error('Alert email failed: ' + err);
+  }
 }
 
 /* ---------------- helpers ---------------- */
@@ -327,6 +374,10 @@ function setup() {
   var first = ss.getSheetByName('Sheet1');
   if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
   props.setProperty('SHEET_ID', ss.getId());
+  if (!props.getProperty('ALERT_EMAILS')) {
+    var me = Session.getEffectiveUser().getEmail();
+    if (me) props.setProperty('ALERT_EMAILS', me);
+  }
   console.log('IEO spreadsheet ready: ' + ss.getUrl());
   console.log('SHEET_ID = ' + ss.getId() + '  (copy this into the staff panel project)');
   return ss.getId();

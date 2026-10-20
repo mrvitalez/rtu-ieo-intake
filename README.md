@@ -40,7 +40,7 @@ The SOP flowchart, step by step, and what the system does at each step.
 | 2 | Identify the Risk and Opportunity | (risk note) | F001 captures the *Reason for Referral* and *Other Observations*. Staff write the risk and opportunity note in the panel; the next steps stay locked until it is saved. | Referrer, IEO Staff |
 | 3 | Submission of Referral Slip | `RECEIVED` | F001 is submitted. A case is created with a reference number (`IEO-2026-0001`). | Referrer |
 | 4 | Submission of Required Document with Supporting Documents. *Do they have the required documents?* | `RECEIVED` / `DOCS_PENDING` | Staff choose the case category and tick the documents received. **Complete**: staff open the interview stage. **Incomplete**: IP and PDL students are asked to submit the documents; neurodivergent and physical or sensory cases are given F003. | IEO Staff, Referred Student |
-| 5 | Answering of Needs Assessment Interview and Student Portfolio Form | `INTERVIEW` → `PORTFOLIO_SUBMITTED` | Staff issue a personal F002 link. The student submits F002. Staff record the sessions (Intake, Sessions 1 to 10) and case notes. | Referred Student, IEO Staff (Case Manager) |
+| 5 | Answering of Needs Assessment Interview and Student Portfolio Form | `INTERVIEW` → `PORTFOLIO_SUBMITTED` | Staff schedule the interview (date, time, in person or online). The student is emailed the schedule and a personal F002 link, and gets a Google Calendar invite. The student submits F002. Staff record the sessions (Intake, Sessions 1 to 10) and case notes. Interviews can be rescheduled. | Referred Student, IEO Staff (Case Manager) |
 | 6 | *Do they require educational assistance?* | `ISP` or `WAIVER_PENDING` → `WAIVER_SIGNED` | **Yes**: proceed with the Formulation of ISP (SOP-OVPAA-IEO-02). **No**: the waiver section of F002 unlocks and the student signs it from a new link. | IEO Staff, Referred Student |
 | 7 | End of Process | `CLOSED` | Staff close the case. A case can also be closed early with a reason (for example, the student withdrew). | IEO Staff |
 
@@ -52,7 +52,7 @@ The order is enforced by the server, not only by the screen: the interview canno
 |---|---|---|
 | **Referrer** (office, faculty, classmate, or the student) | Submit F001 and receive a reference number | View or look up any case, including their own referral |
 | **Referred Student** | Submit F002 and, if unlocked, the ISP waiver, using their personal link | View any record, including their own answers after submitting |
-| **IEO Staff** | Everything in the staff panel: review referrals, the document checklist, F003, links, sessions, case notes, decision, closing | Access the panel without being on the staff list *and* having access to the sheet |
+| **IEO Staff** | Everything in the staff panel: review referrals, the document checklist, F003, interview scheduling and invites, links, sessions, case notes, decision, closing | Access the panel without being on the staff list *and* having access to the sheet |
 
 ## Required documents rule
 
@@ -75,49 +75,68 @@ A student can belong to more than one category; the requirements combine. *The p
 * **Staff panel, two locks.** It runs as the signed in user, so Google requires that the user has access to the sheet, *and* every action checks the account against the `STAFF_EMAILS` list. Students and other accounts see an "access denied" page with no data.
 * **Spreadsheet safety.** All cells are stored as text (leading zeros in phone and student numbers are kept) and anything that looks like a formula is stored as plain text.
 * **Abuse guards.** Option values are checked against the original forms, lengths are limited, a hidden field catches bots, and submissions are capped per minute.
+* **Alert emails.** IEO staff get an email when a referral, portfolio, or waiver comes in. It carries only the reference number and the next step, never the student's name or answers.
 * **Audit log.** Every staff action, including opening a case, is logged with the staff email in the `AuditLog` tab.
 * No cookies, no analytics. The only browser storage is the text size choice.
 
 ## Setup
 
-You need: the IEO Google account that will own the records, and access to this repository.
+About 20 minutes, done once. You do **not** need to create a Google Sheet yourself: `setup()` creates it in the Google Drive of the account that runs it. Use one Google account for everything below (the IEO account, or your own while piloting).
 
-### 1. Create the records sheet and intake endpoint
+### 1. Records and the public endpoint
 
-1. Signed in as the IEO account, go to [script.google.com](https://script.google.com) and create a new project named **RTU IEO Intake**.
-2. In Project Settings, tick **Show "appsscript.json" manifest file in editor**.
-3. Replace the editor files with the three files in [`apps-script/intake`](apps-script/intake): `Code.gs`, `Schema.gs`, `appsscript.json`.
-4. Select the function **`setup`** and click **Run**. Approve the permission prompt. The log shows the new sheet's address and its **SHEET_ID**. Copy the ID.
-5. **Deploy > New deployment > Web app**: *Execute as* **Me**, *Who has access* **Anyone**. Click Deploy and copy the **Web app URL** (ends in `/exec`).
-6. Open the new spreadsheet and check its sharing: **only IEO staff** should have access. Never make it public or "anyone with the link".
+1. Go to [script.google.com](https://script.google.com) and click **New project**. Rename it **RTU IEO Intake**.
+2. Delete the sample code in `Code.gs` and paste the whole of [`apps-script/paste/intake.gs`](apps-script/paste/intake.gs). Click **Save**.
+3. In the function menu at the top choose **`setup`**, then click **Run**. Approve the permission prompt (Google shows "unverified app" because you wrote it: click **Advanced**, then **Go to RTU IEO Intake**).
+4. Open **Execution log**. Copy the **SHEET_ID** it prints. The spreadsheet "RTU IEO Intake Records (SOP-OVPAA-IEO-01)" is now in your Drive, and alert emails go to this account by default.
+5. Click **Deploy > New deployment**, choose type **Web app**. Set *Execute as* **Me** and *Who has access* **Anyone**. Click **Deploy** and copy the **Web app URL** (ends in `/exec`).
 
-### 2. Create the staff panel
+### 2. Staff panel
 
-1. Create a second Apps Script project named **RTU IEO Staff Panel** and show the manifest as above.
-2. Add the files in [`apps-script/staff-panel`](apps-script/staff-panel): `Code.gs`, `Schema.gs`, `Panel.html`, `F003Sheet.html`, `appsscript.json` (create the two `.html` files with **+ > HTML** and give them exactly those names, without `.html`).
-3. In **Project Settings > Script properties**, add:
+1. Create another **New project** named **RTU IEO Staff Panel**.
+2. Replace `Code.gs` with [`apps-script/paste/staff-panel.gs`](apps-script/paste/staff-panel.gs).
+3. Click **+ > HTML**, name it exactly `Panel`, and paste [`apps-script/paste/Panel.html`](apps-script/paste/Panel.html). Save.
+4. Open **Project Settings** (gear icon) > **Script properties** and add:
 
    | Property | Value |
    |---|---|
    | `SHEET_ID` | the ID from step 1.4 |
-   | `STAFF_EMAILS` | comma separated IEO staff accounts, e.g. `ieo@rtu.edu.ph, casemanager@rtu.edu.ph` |
+   | `STAFF_EMAILS` | the Google accounts allowed in, comma separated (include your own) |
    | `SITE_URL` | `https://mrvitalez.github.io/rtu-ieo-intake/` |
+   | `CALENDAR_ID` | optional, see "Interview invites" below |
 
-4. **Deploy > New deployment > Web app**: *Execute as* **User accessing the web app**, *Who has access* **Anyone with Google account** (or **Anyone within rtu.edu.ph** if the IEO uses RTU Google Workspace accounts). Bookmark the Web app URL; that is the staff panel. Do not post it on the public site.
-5. Share the spreadsheet (Editor) with each account in `STAFF_EMAILS`. Each staff member approves the permission prompt the first time they open the panel.
+5. **Deploy > New deployment > Web app**: *Execute as* **User accessing the web app**, *Who has access* **Anyone with Google account**. Deploy and **bookmark the URL**: this is the staff panel. Do not post it on the public site.
+6. Open the bookmarked URL and approve the permission prompt (sheet, email, calendar).
+7. Back in the **Intake** project, add two optional Script properties so alert emails link to the panel: `STAFF_PANEL_URL` (the bookmarked URL) and, if more people should get alerts, `ALERT_EMAILS` (comma separated).
 
 ### 3. Connect the public site
 
-1. In this repository, edit [`docs/assets/js/config.js`](docs/assets/js/config.js) and paste the intake Web app URL into `ENDPOINT_URL`. Commit.
-2. GitHub Pages (Settings > Pages) publishes from branch `main`, folder `/docs`. The site is at **https://mrvitalez.github.io/rtu-ieo-intake/**.
-3. Test: submit an F001 with test data, then open the staff panel and find the case. Close the test case with the reason "Test".
+1. Turn on GitHub Pages: repository **Settings > Pages**, Source **Deploy from a branch**, branch **main**, folder **/docs**, **Save**.
+2. Edit [`docs/assets/js/config.js`](docs/assets/js/config.js) on GitHub and paste the Web app URL from step 1.5 into `ENDPOINT_URL`. Commit.
+3. Test: submit an F001 at `https://mrvitalez.github.io/rtu-ieo-intake/f001.html`. You should get an alert email, a new row in the sheet, and the case in the staff panel. Close the test case with the reason "Test".
 
-Until `ENDPOINT_URL` is set, the forms run in **preview mode**: they check answers but send nothing.
+Until `ENDPOINT_URL` is set the forms run in **preview mode**: they check answers but send nothing.
 
-### Updating
+### Adding staff later
 
-* After changing either Apps Script project, use **Deploy > Manage deployments > Edit > New version** so the same URL keeps working.
-* `Schema.gs` must be identical in both projects. `F003Sheet.html` must match `docs/assets/js/f003-sheet.js` wrapped in `<script>` tags. The tests check both.
+Add their Google account to `STAFF_EMAILS`, share the spreadsheet with them as **Editor**, and send them the staff panel bookmark. Both are needed: the panel runs as the signed in person.
+
+### Interview invites
+
+When staff schedule an interview, the panel can email the student (the schedule plus their portfolio link, sent from the staff member's own Gmail) and send a Google Calendar invite.
+
+* With no `CALENDAR_ID`, the invite goes on the calendar of the staff member who schedules it.
+* For a shared IEO calendar: in Google Calendar create a calendar (for example "IEO Interviews"), share it with every staff account with **Make changes to events**, copy its **Calendar ID** from its settings, and put it in `CALENDAR_ID`. Then anyone on the team can reschedule any interview.
+
+### Using a personal Google account
+
+Everything works on a personal Gmail account. Keep in mind that the sheet will hold sensitive personal information (health and disability details) under RA 10173, so for regular use the University Data Protection Officer may prefer it to live in an official RTU or IEO account. To move later, run the same setup under that account, then copy the rows across.
+
+### Updating the code
+
+1. Edit the source files in `apps-script/intake` or `apps-script/staff-panel`, then run `node tools/build-apps-script.js`.
+2. Paste the new files from `apps-script/paste` into the Apps Script projects.
+3. **Deploy > Manage deployments**, click the pencil, choose **New version**, **Deploy**. The URL stays the same.
 
 ## Repository layout
 
@@ -132,15 +151,17 @@ docs/                     public site (GitHub Pages)
   assets/js/common.js     consent text, validation, sending
   assets/js/f003-sheet.js printable F003 (shared with the staff panel)
 apps-script/
-  intake/                 public, write only endpoint + setup()
-  staff-panel/            staff only web app
+  intake/                 public, write only endpoint + setup() + alert emails
+  staff-panel/            staff only web app (scheduling, calendar invites)
+  paste/                  paste ready files for setup (generated)
+tools/build-apps-script.js  builds apps-script/paste
 tests/                    Node tests with an in-memory Apps Script mock
 ```
 
 ## Testing
 
 ```
-node tests/run.js        # 53 checks: form options vs schema, validation, workflow order, access control
+node tests/run.js        # 62 checks: form options vs schema, validation, workflow order, access control
 node tests/e2e.js        # full SOP flow in a headless browser (needs Playwright)
 node tests/server.js     # local copy of everything at http://localhost:8765 (panel at /panel)
 ```

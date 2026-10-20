@@ -132,7 +132,24 @@ async function shot(page, name, full) {
   await step('staff panel: with the clinical diagnosis the interview opens and gives a link', async () => {
     await panel.check('input[name=doc][value=clinical_dx]');
     await panel.click('#toInterview');
+    await panel.waitForSelector('#schedDialog[open]');
+    assert.strictEqual(await panel.inputValue('#s_email'), 'juan@example.com', 'self referral email suggested');
+    const day = new Date(Date.now() + 8 * 3600000 + 2 * 86400000).toISOString().slice(0, 10);
+    await panel.click('#schedGo');
+    assert.ok(await panel.locator('#schedDialog[open]').count(), 'date is required');
+    await panel.fill('#s_date', day);
+    await panel.fill('#s_start', '14:00');
+    await panel.fill('#s_end', '15:00');
+    await shot(panel, 'panel-schedule-dialog');
+    await panel.click('#schedGo');
     await panel.waitForSelector('#theLink');
+    assert.match(await panel.textContent('#detail'), /Interview: .*2:00/);
+    const sentLink = await panel.inputValue('#theLink');
+    assert.ok(srv.world.mail.some(m => m.to === 'juan@example.com' && m.body.includes(sentLink)), 'student emailed with link');
+    assert.ok(Object.keys(srv.world.events).length === 1, 'calendar event created');
+    await panel.selectOption('#stageFilter', 'upcoming');
+    assert.match(await panel.textContent('#cases'), /Interview/);
+    await panel.selectOption('#stageFilter', '');
     link = await panel.inputValue('#theLink');
     assert.match(link, /f002\.html#t=[a-f0-9]{64}$/);
     await shot(panel, 'panel-link');

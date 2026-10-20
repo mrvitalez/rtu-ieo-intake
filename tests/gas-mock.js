@@ -68,7 +68,31 @@ function makeWorld() {
     create(name) { const s = new Spreadsheet(name); files[s.id] = s; return s; },
     openById(id) { if (!files[id]) throw new Error('No spreadsheet ' + id); return files[id]; }
   };
-  return { SpreadsheetApp, files };
+  // Gmail and Calendar stand-ins: everything sent or created is recorded for the tests.
+  const mail = [];
+  const events = {};
+  let eventSeq = 1;
+  class CalEvent {
+    constructor(owner, title, start, end, opts) {
+      Object.assign(this, { id: 'evt' + (eventSeq++) + '@google.com', owner, title, start, end, opts: opts || {}, guests: [], deleted: false });
+      this.location = this.opts.location; this.description = this.opts.description;
+    }
+    getId() { return this.id; }
+    setTime(s, e) { this.start = s; this.end = e; return this; }
+    setLocation(l) { this.location = l; return this; }
+    setDescription(d) { this.description = d; return this; }
+    addGuest(g) { this.guests.push(g); return this; }
+    getGuestList() { return this.guests.map(g => ({ getEmail: () => g })); }
+    deleteEvent() { this.deleted = true; }
+  }
+  function calendarFor(owner) {
+    return {
+      owner,
+      createEvent(title, start, end, opts) { const e = new CalEvent(owner, title, start, end, opts); events[e.id] = e; return e; },
+      getEventById(id) { const e = events[id]; return e && e.owner === owner && !e.deleted ? e : null; }
+    };
+  }
+  return { SpreadsheetApp, files, mail, events, calendarFor };
 }
 
 function fmt(date, tz, pattern) {
@@ -90,7 +114,12 @@ function loadProject(dir, world, opts) {
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); } }) },
     CacheService: { getScriptCache: () => ({ get: k => (k in cache ? cache[k] : null), put: (k, v) => { cache[k] = v; } }) },
     LockService: { getScriptLock: () => ({ waitLock() { }, releaseLock() { } }) },
-    Session: { getActiveUser: () => ({ getEmail: () => user.email }) },
+    Session: { getActiveUser: () => ({ getEmail: () => user.email }), getEffectiveUser: () => ({ getEmail: () => opts.owner || 'ieo.owner@gmail.com' }) },
+    MailApp: { sendEmail: m => { if (world.failMail) throw new Error('Mail quota exceeded'); world.mail.push(Object.assign({ from: user.email || opts.owner || 'ieo.owner@gmail.com' }, m)); } },
+    CalendarApp: {
+      getDefaultCalendar: () => world.calendarFor(user.email),
+      getCalendarById: id => (world.sharedCalendars && world.sharedCalendars[id] && world.sharedCalendars[id].indexOf(user.email) >= 0 ? world.calendarFor('shared:' + id) : null)
+    },
     Utilities: {
       formatDate: fmt,
       getUuid: () => crypto.randomUUID(),

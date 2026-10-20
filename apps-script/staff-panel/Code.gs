@@ -14,6 +14,8 @@
  *   SHEET_ID      the IEO spreadsheet ID printed by setup() in the intake project
  *   STAFF_EMAILS  comma separated list of authorized IEO Google accounts
  *   SITE_URL      the public GitHub Pages address, e.g. https://USER.github.io/rtu-ieo-intake/
+ *   CALENDAR_ID   optional: a shared IEO Google Calendar for interview invites. If empty, the
+ *                 invite goes on the calendar of the staff member who schedules it.
  */
 
 function doGet() {
@@ -97,7 +99,11 @@ function getConfig() {
     professions: IEO.PROFESSIONS,
     f003Docs: IEO.F003_DOCS,
     sessionLabels: IEO.SESSION_LABELS,
-    linkValidDays: IEO.LINK_VALID_DAYS
+    linkValidDays: IEO.LINK_VALID_DAYS,
+    interviewModes: IEO.INTERVIEW_MODES,
+    defaultVenue: IEO.DEFAULT_VENUE,
+    staffEmail: currentEmail_(),
+    sharedCalendar: !!PropertiesService.getScriptProperties().getProperty('CALENDAR_ID')
   };
 }
 
@@ -107,7 +113,9 @@ function listCases() {
     return {
       case_id: c.case_id, created_at: c.created_at, stage: c.stage, student_name: c.student_name,
       student_no: c.student_no, program: c.program, department: c.department,
-      referral_source: c.referral_source, updated_at: c.updated_at
+      referral_source: c.referral_source, updated_at: c.updated_at,
+      interview_start: c.interview_start, interview_end: c.interview_end,
+      interview_mode: c.interview_mode, interview_venue: c.interview_venue
     };
   }).reverse();
 }
@@ -134,7 +142,9 @@ function getCase(caseId) {
     categories: categories,
     received: received,
     evaluation: ieoEvaluateDocuments_(categories, received),
-    linkActive: !!c.link_purpose && !ieoLinkExpired_(c)
+    linkActive: !!c.link_purpose && !ieoLinkExpired_(c),
+    suggestedStudentEmail: c.student_email || (portfolios.length ? portfolios[portfolios.length - 1].email : '') ||
+      (function () { var r = byCase('F001_Referrals')[0]; return r && r.r_source === 'Self' ? r.r_email : ''; })()
   };
 }
 
@@ -215,17 +225,170 @@ function issueF003(caseId, form) {
 
 /* ---------------- Stage: Needs Assessment Interview and Student Portfolio ---------------- */
 
-/** The SOP rule: the process may not push forward without the required documents. */
-function proceedToInterview(caseId) {
+/**
+ * The SOP rule: the process may not push forward without the required documents.
+ * Opens the interview stage, schedules the interview, issues the student's portfolio link,
+ * and (optionally) emails the student and sends a Google Calendar invite.
+ * schedule: { date, start, end, mode, venue, student_email, also_invite, send_email, send_invite }
+ */
+function proceedToInterview(caseId, schedule) {
   return staffWrite_(caseId, 'INTERVIEW_SCHEDULED', function (c, email) {
     if (['RECEIVED', 'DOCS_PENDING'].indexOf(c.stage) < 0) throw new Error('This case is not at the documents stage.');
     if (!c.risk_opportunity_note) throw new Error('Save the risk and opportunity note first.');
     var ev = ieoEvaluateDocuments_(parseList_(c.categories), parseList_(c.documents_received));
     if (!ev.complete) throw new Error('The process may not push forward without the required documents. Missing: ' + ev.missing.join('; '));
+    var sch = parseSchedule_(schedule);
     var token = ieoNewToken_();
-    touch_(c, email, { stage: 'INTERVIEW', link_hash: ieoHash_(token), link_purpose: 'portfolio', link_issued_at: ieoNow_() });
-    return { ok: true, link: siteLink_('f002.html', token) };
+    var link = siteLink_('f002.html', token);
+    var changes = { stage: 'INTERVIEW', link_hash: ieoHash_(token), link_purpose: 'portfolio', link_issued_at: ieoNow_() };
+    var out = applySchedule_(c, email, sch, changes, link, false);
+    touch_(c, email, changes);
+    out.ok = true;
+    out.link = link;
+    out._audit = 'interview ' + sch.startText + (out.eventCreated ? ', calendar invite sent' : '') + (out.emailSent ? ', student emailed' : '');
+    return out;
   });
+}
+
+/** Change the interview date, time or venue. Updates the calendar event and can email the student. */
+function rescheduleInterview(caseId, schedule) {
+  return staffWrite_(caseId, 'INTERVIEW_RESCHEDULED', function (c, email) {
+    if (['INTERVIEW', 'PORTFOLIO_SUBMITTED'].indexOf(c.stage) < 0) throw new Error('The interview can be rescheduled only before the decision.');
+    var sch = parseSchedule_(schedule);
+    var changes = {};
+    var out = applySchedule_(c, email, sch, changes, '', true);
+    touch_(c, email, changes);
+    out.ok = true;
+    out._audit = 'moved to ' + sch.startText;
+    return out;
+  });
+}
+
+function parseSchedule_(s) {
+  s = s || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s.date || '')) throw new Error('Choose the interview date.');
+  if (!/^\d{2}:\d{2}$/.test(s.start || '') || !/^\d{2}:\d{2}$/.test(s.end || '')) throw new Error('Enter the start and end time.');
+  var start = new Date(s.date + 'T' + s.start + ':00+08:00');
+  var end = new Date(s.date + 'T' + s.end + ':00+08:00');
+  if (!(end > start)) throw new Error('The end time must be after the start time.');
+  var today = Utilities.formatDate(new Date(), IEO.TIMEZONE, 'yyyy-MM-dd');
+  if (s.date < today) throw new Error('The interview date is in the past.');
+  var mode = IEO.INTERVIEW_MODES.indexOf(s.mode) >= 0 ? s.mode : 'In person';
+  var venue = ieoClean_(s.venue) || (mode === 'In person' ? IEO.DEFAULT_VENUE : '');
+  if (mode === 'Online' && !/^https:\/\/\S+$/.test(venue)) throw new Error('For an online interview, paste the meeting link (starting with https://).');
+  var studentEmail = ieoClean_(s.student_email).toLowerCase();
+  if (studentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail)) throw new Error('Enter a valid student email address.');
+  if ((s.send_email || s.send_invite) && !studentEmail) throw new Error('Enter the student email to send the schedule or the invite.');
+  var others = String(s.also_invite || '').split(',').map(function (x) { return x.trim().toLowerCase(); }).filter(String);
+  others.forEach(function (x) { if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)) throw new Error('Check the email address ' + x + '.'); });
+  return {
+    start: start, end: end, mode: mode, venue: venue, studentEmail: studentEmail, others: others,
+    sendEmail: !!s.send_email, sendInvite: !!s.send_invite,
+    startText: Utilities.formatDate(start, IEO.TIMEZONE, 'yyyy-MM-dd HH:mm'),
+    endText: Utilities.formatDate(end, IEO.TIMEZONE, 'yyyy-MM-dd HH:mm')
+  };
+}
+
+/** Writes the schedule into changes, creates or moves the calendar event, and emails the student. */
+function applySchedule_(c, staffEmail, sch, changes, link, isReschedule) {
+  var out = { eventCreated: false, emailSent: false, warnings: [] };
+  changes.student_email = sch.studentEmail || c.student_email || '';
+  changes.interview_start = sch.startText;
+  changes.interview_end = sch.endText;
+  changes.interview_mode = sch.mode;
+  changes.interview_venue = sch.venue;
+  changes.interview_scheduled_by = staffEmail;
+  changes.interview_scheduled_at = ieoNow_();
+
+  if (sch.sendInvite) {
+    try {
+      var cal = ieoCalendar_();
+      var title = 'IEO needs assessment interview (' + c.case_id + ')';
+      var desc = 'Rizal Technological University, Inclusive Education Office\n' +
+        'Needs assessment interview and Student Portfolio (SOP-OVPAA-IEO-01)\n' +
+        'Reference no.: ' + c.case_id + '\n\n' +
+        (sch.mode === 'Online' ? 'Join online: ' + sch.venue : 'Venue: ' + sch.venue) + '\n\n' +
+        'Please bring your recent 2x2 picture with blue background.';
+      var event = c.calendar_event_id ? safeGetEvent_(cal, c.calendar_event_id) : null;
+      if (event) {
+        event.setTime(sch.start, sch.end);
+        event.setLocation(sch.mode === 'Online' ? 'Online' : sch.venue);
+        event.setDescription(desc);
+      } else {
+        event = cal.createEvent(title, sch.start, sch.end, {
+          description: desc,
+          location: sch.mode === 'Online' ? 'Online' : sch.venue,
+          sendInvites: true
+        });
+        changes.calendar_event_id = event.getId();
+      }
+      var guests = [sch.studentEmail].concat(sch.others);
+      var already = event.getGuestList().map(function (g) { return String(g.getEmail()).toLowerCase(); });
+      guests.forEach(function (g) { if (g && already.indexOf(g) < 0) event.addGuest(g); });
+      out.eventCreated = true;
+    } catch (err) {
+      out.warnings.push('The calendar invite could not be sent: ' + String(err && err.message || err));
+    }
+  }
+
+  if (sch.sendEmail) {
+    try {
+      var when = Utilities.formatDate(sch.start, IEO.TIMEZONE, 'EEEE, MMMM d, yyyy') + ', ' +
+        Utilities.formatDate(sch.start, IEO.TIMEZONE, 'h:mm a') + ' to ' + Utilities.formatDate(sch.end, IEO.TIMEZONE, 'h:mm a');
+      var lines = [
+        'Good day!',
+        '',
+        isReschedule ? 'Your needs assessment interview with the Inclusive Education Office has been moved to a new schedule:'
+          : 'Your required documents are complete. Your needs assessment interview with the Inclusive Education Office is scheduled on:',
+        '',
+        'Date and time: ' + when,
+        sch.mode === 'Online' ? 'Online meeting link: ' + sch.venue : 'Venue: ' + sch.venue,
+        'Reference no.: ' + c.case_id,
+        ''
+      ];
+      if (link) {
+        lines = lines.concat([
+          'Please fill in the Student Portfolio Form for Inclusive Education using your personal link below. You may fill it in before the interview or during it with the Case Manager.',
+          link,
+          '',
+          'This link is for you only and stays valid for ' + IEO.LINK_VALID_DAYS + ' days. Do not share it.',
+          ''
+        ]);
+      } else {
+        lines = lines.concat(['Use the Student Portfolio link sent to you earlier. If you lost it, reply to this email.', '']);
+      }
+      lines = lines.concat([
+        'Please bring your recent 2x2 picture with blue background.',
+        'If you cannot attend, reply to this email so we can set a new schedule.',
+        '',
+        'Rizal Technological University',
+        'Inclusive Education Office',
+        '(02) 8534-8267 loc. 1202'
+      ]);
+      MailApp.sendEmail({
+        to: sch.studentEmail,
+        subject: 'RTU Inclusive Education Office: needs assessment interview ' + (isReschedule ? 'moved' : 'schedule') + ' (' + c.case_id + ')',
+        body: lines.join('\n'),
+        name: 'RTU Inclusive Education Office'
+      });
+      out.emailSent = true;
+    } catch (err) {
+      out.warnings.push('The email to the student could not be sent: ' + String(err && err.message || err));
+    }
+  }
+  return out;
+}
+
+/** The shared IEO calendar if CALENDAR_ID is set, otherwise the signed in staff member's own calendar. */
+function ieoCalendar_() {
+  var id = String(PropertiesService.getScriptProperties().getProperty('CALENDAR_ID') || '');
+  var cal = id ? CalendarApp.getCalendarById(id) : CalendarApp.getDefaultCalendar();
+  if (!cal) throw new Error('You do not have access to the IEO calendar. Ask the calendar owner to share it with "Make changes to events".');
+  return cal;
+}
+
+function safeGetEvent_(cal, id) {
+  try { return cal.getEventById(id); } catch (e) { return null; }
 }
 
 /** Makes a fresh link (the old one stops working). Allowed for the portfolio and the waiver. */
@@ -305,6 +468,9 @@ function closeCase(caseId, reason) {
     var r = ieoClean_(reason, 1000);
     if (!done && !r) throw new Error('This case has not reached a decision. Give the reason for closing it (for example, the student withdrew).');
     touch_(c, email, { stage: 'CLOSED', closed_at: ieoNow_(), close_reason: done ? (r || 'Completed') : r, link_hash: '', link_purpose: '' });
+    if (!done && c.calendar_event_id && c.interview_start && c.interview_start > Utilities.formatDate(new Date(), IEO.TIMEZONE, 'yyyy-MM-dd HH:mm')) {
+      try { var ev = safeGetEvent_(ieoCalendar_(), c.calendar_event_id); if (ev) ev.deleteEvent(); } catch (e) { /* the event may belong to another staff member */ }
+    }
     return { ok: true, _audit: r || 'Completed' };
   });
 }

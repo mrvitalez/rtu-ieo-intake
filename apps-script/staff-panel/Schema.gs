@@ -101,6 +101,9 @@ var IEO = {
 
   SEMESTERS: ['1st', '2nd', 'Summer'],
 
+  INTERVIEW_MODES: ['In person', 'Online'],
+  DEFAULT_VENUE: 'Inclusive Education Office, Rizal Technological University, Boni Avenue, Mandaluyong City',
+
   // Document checklist (SOP-OVPAA-IEO-01, Submission of Required Documents)
   CATEGORIES: {
     NEURODIVERGENT: 'Neurodivergent condition',
@@ -168,7 +171,9 @@ var IEO = {
       'referral_source', 'risk_opportunity_note', 'categories', 'documents_received', 'documents_complete',
       'f003_issued_count', 'link_hash', 'link_purpose', 'link_issued_at', 'portfolio_submitted_at',
       'decision', 'decision_at', 'decision_by', 'waiver_unlocked_at', 'waiver_signed_at',
-      'closed_at', 'close_reason', 'updated_at', 'updated_by'],
+      'closed_at', 'close_reason', 'updated_at', 'updated_by',
+      'student_email', 'interview_start', 'interview_end', 'interview_mode', 'interview_venue',
+      'calendar_event_id', 'interview_scheduled_by', 'interview_scheduled_at'],
     F001_Referrals: ['case_id', 'submitted_at', 's_name', 's_program', 's_department', 's_student_no',
       's_birthday', 's_age', 's_sex', 'reasons', 'reason_other', 'r_name', 'r_contact', 'r_department',
       'r_email', 'r_designation', 'r_source', 'r_source_other', 'observations', 'attest_name',
